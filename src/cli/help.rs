@@ -27,9 +27,10 @@ Version {v}
     Show only N first hextets (=> N lines in terminal + header). Setting this
     to auto will print as much lines as fits the screen including the header or
     first 10 lines if the terminal size couldn't be determined. Default is all.
+    This flag also implies `{'y}--dump{'_}`.
 
   {'y}--head{'_}
-    Same as `{'y}-c auto{'_}`.
+    Same as `{'y}-c auto{'_}`. This also implies `{'y}--dump{'_}`
 
   {'y}--utf{'_}
     Use utf graphic characters to represent non graphic ascii characters in the
