@@ -24,3 +24,5 @@ control characters with the flag `--utf`:
 <p align="center">
     <img src="https://github.com/user-attachments/assets/ea3508d4-7311-4330-b290-936cfb72bddd" />
 </p>
+
+For more features see `--help`.
