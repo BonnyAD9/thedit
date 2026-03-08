@@ -27,17 +27,21 @@ Version {v}
     Show only N first hextets (=> N lines in terminal + header). Setting this
     to auto will print as much lines as fits the screen including the header or
     first 10 lines if the terminal size couldn't be determined. Default is all.
-    This flag also implies `{'y}--dump{'_}`.
+    This flag also implies `--dump`.
 
   {'y}--head{'_}
-    Same as `{'y}-c auto{'_}`. This also implies `{'y}--dump{'_}`
+    Same as `-c auto`. This also implies `--dump`
 
   {'y}--utf{'_}
     Use utf graphic characters to represent non graphic ascii characters in the
     ascii view.
 
   {'y}--stdin{'_}
-    Read data from stdin. This also implies `{'y}--dump{'_}`.
+    Read data from stdin. This also implies `--dump`.
+
+    “ {'i}Be strong, all you people of the land,’ declares the Lord,
+      ‘and work. For I am with you,’ declares the Lord Almighty. {'_}”
+                                                      {'w bold}✝ Haggai 2:4{'_}
 "
     )
 }
