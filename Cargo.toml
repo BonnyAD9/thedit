@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bitflags = "2.11.0"
+pareg = "0.12.0"
+termal = { version = "4.2.1", features = ["raw"] }
+thiserror = "2.0.18"
