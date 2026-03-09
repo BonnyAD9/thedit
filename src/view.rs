@@ -1,10 +1,13 @@
 use std::{ops::Range, time::Duration};
 
 use termal::{
-    codes,
+    codes, formatc,
     raw::{
         Terminal,
-        events::{Event, Key, KeyCode, Modifiers},
+        events::{
+            Event, Key, KeyCode, Modifiers,
+            mouse::{self, Mouse},
+        },
         raw_guard, term_size,
     },
     reset_terminal,
@@ -20,6 +23,8 @@ struct ViewState {
     term: Terminal,
     exit: bool,
     max_line: usize,
+    typed: String,
+    message: String,
 }
 
 pub fn view(file: FileView) -> Result<()> {
@@ -32,6 +37,8 @@ pub fn view(file: FileView) -> Result<()> {
         term: Terminal::stdio(),
         exit: false,
         max_line: 0,
+        typed: String::new(),
+        message: String::new(),
     };
 
     termal::register_reset_on_panic();
@@ -43,7 +50,11 @@ pub fn view(file: FileView) -> Result<()> {
 impl ViewState {
     fn run(&mut self) -> Result<()> {
         self.max_line = (self.file.length()?.saturating_sub(1)) / 16;
+
         self.actions += codes::ENABLE_ALTERNATIVE_BUFFER;
+        self.actions += codes::ENABLE_MOUSE_XY_PR_TRACKING;
+        self.actions += codes::ENABLE_MOUSE_XY_EXT;
+
         const TIMEOUT: Duration = Duration::from_millis(50);
         self.redraw()?;
         while !self.exit {
@@ -61,6 +72,7 @@ impl ViewState {
             #[allow(clippy::single_match)]
             match evt {
                 Event::KeyPress(key) => self.key_event(key)?,
+                Event::Mouse(mouse) => self.mouse_event(mouse)?,
                 _ => {}
             }
         }
@@ -69,9 +81,33 @@ impl ViewState {
     }
 
     fn key_event(&mut self, key: Key) -> Result<()> {
+        if self.typed.starts_with(':') {
+            if key.code == KeyCode::Enter {
+                return self.command();
+            }
+            if let Some(chr) = key.key_char {
+                self.typed.push(chr);
+                self.redraw()?;
+                return Ok(());
+            }
+            match key.code {
+                KeyCode::Backspace => {
+                    self.typed.pop();
+                    self.redraw()?;
+                }
+                KeyCode::Esc => {
+                    self.typed.clear();
+                    self.redraw()?;
+                }
+                _ => {}
+            }
+
+            return Ok(());
+        }
+
         match key.code {
-            KeyCode::Char('j') => self.scroll_down(1),
-            KeyCode::Char('k') => self.scroll_up(1),
+            KeyCode::Char('j') | KeyCode::Down => self.scroll_down(1),
+            KeyCode::Char('k') | KeyCode::Up => self.scroll_up(1),
             KeyCode::Char('y')
                 if key.modifiers.contains(Modifiers::CONTROL) =>
             {
@@ -92,10 +128,34 @@ impl ViewState {
             {
                 self.scroll_down((self.lines.end - self.lines.start) / 2)
             }
-            KeyCode::Char('q') => {
-                self.exit = true;
-                Ok(())
+            KeyCode::Char(':') => {
+                self.message.clear();
+                self.typed.push(':');
+                self.redraw()
             }
+            KeyCode::Esc => {
+                self.message.clear();
+                self.redraw()
+            }
+            _ => Ok(()),
+        }
+    }
+
+    fn command(&mut self) -> Result<()> {
+        if matches!(self.typed.as_str(), ":q" | ":x" | ":quit" | ":exit") {
+            self.exit = true;
+        } else {
+            self.message +=
+                &formatc!("{'drb}error: unknown command `{}`{'_}", self.typed);
+        }
+        self.typed.clear();
+        self.redraw()
+    }
+
+    fn mouse_event(&mut self, evt: Mouse) -> Result<()> {
+        match evt.event {
+            mouse::Event::ScrollDown => self.scroll_down(1),
+            mouse::Event::ScrollUp => self.scroll_up(1),
             _ => Ok(()),
         }
     }
@@ -132,7 +192,11 @@ impl ViewState {
         }
 
         self.actions += codes::move_to!(0, 9999);
-
+        if self.message.is_empty() {
+            self.actions += &self.typed;
+        } else {
+            self.actions += &self.message;
+        }
         Ok(())
     }
 
