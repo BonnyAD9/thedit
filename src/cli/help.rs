@@ -41,9 +41,9 @@ Thedit is a colorful hex editor with familiar layout.
   {'y}--stdin{'_}
     Read data from stdin. This also implies `--dump`.
 
-    “ {'i}Be strong, all you people of the land,’ declares the Lord,
-      ‘and work. For I am with you,’ declares the Lord Almighty. {'_}”
-                                                      {'w bold}✝ Haggai 2:4{'_}
+ “ {'i}Be strong, all you people of the land,’ declares the Lord,
+   ‘and work. For I am with you,’ declares the Lord Almighty. {'_}”
+                                                   {'w bold}✝ Haggai 2:4{'_}
 "
     )
 }
