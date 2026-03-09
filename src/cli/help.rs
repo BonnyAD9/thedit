@@ -5,8 +5,10 @@ pub fn help() {
     let signature = gradient("BonnyAD9", (250, 50, 170), (180, 50, 240));
 
     printacln!(
-        "Welcome in {'g i}thedit{'_} by {signature}{'_}
+        "Welcome in {'g i}thedit{'_} by {signature}{'_}.
 Version {v}
+
+Thedit is a colorful hex editor with familiar layout.
 
 {'g}Usage:
   {'c}thedit {'gr}[{'dy}flags{'gr}] [file]{'_}
