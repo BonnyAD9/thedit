@@ -25,6 +25,8 @@ struct ViewState {
     max_line: usize,
     typed: String,
     message: String,
+    line: usize,
+    col: usize,
 }
 
 pub fn view(file: FileView) -> Result<()> {
@@ -39,6 +41,8 @@ pub fn view(file: FileView) -> Result<()> {
         max_line: 0,
         typed: String::new(),
         message: String::new(),
+        line: 0,
+        col: 0,
     };
 
     termal::register_reset_on_panic();
@@ -106,17 +110,19 @@ impl ViewState {
         }
 
         match key.code {
-            KeyCode::Char('j') | KeyCode::Down => self.scroll_down(1),
-            KeyCode::Char('k') | KeyCode::Up => self.scroll_up(1),
+            KeyCode::Char('j') | KeyCode::Down => self.move_down(1),
+            KeyCode::Char('k') | KeyCode::Up => self.move_down(-1),
+            KeyCode::Char('h') | KeyCode::Left => self.move_right(-1),
+            KeyCode::Char('l') | KeyCode::Right => self.move_right(1),
             KeyCode::Char('y')
                 if key.modifiers.contains(Modifiers::CONTROL) =>
             {
-                self.scroll_down(1)
+                self.scroll_up(1)
             }
             KeyCode::Char('e')
                 if key.modifiers.contains(Modifiers::CONTROL) =>
             {
-                self.scroll_up(1)
+                self.scroll_down(1)
             }
             KeyCode::Char('u')
                 if key.modifiers.contains(Modifiers::CONTROL) =>
@@ -172,6 +178,39 @@ impl ViewState {
         self.redraw()
     }
 
+    fn move_right(&mut self, cnt: isize) -> Result<()> {
+        let rp = self.col as isize + cnt;
+        let amt = rp.unsigned_abs();
+        if rp < 0 {
+            self.col = 16 - amt % 16;
+            self.move_down(rp / 16 - 1)
+        } else {
+            self.col = amt % 16;
+            self.move_down(rp / 16)
+        }
+    }
+
+    fn move_down(&mut self, cnt: isize) -> Result<()> {
+        self.line = self.line.saturating_add_signed(cnt).min(self.max_line);
+        self.scroll_to_view(self.line, true)
+    }
+
+    fn scroll_to_view(&mut self, line: usize, redraw: bool) -> Result<()> {
+        if line < self.lines.start {
+            self.lines.start = line;
+            self.lines.end = self.lines.start + self.height - 2;
+            self.redraw()
+        } else if line >= self.lines.end {
+            self.lines.end = line + 1;
+            self.lines.start = self.lines.end + 2 - self.height;
+            self.redraw()
+        } else if redraw {
+            self.redraw()
+        } else {
+            Ok(())
+        }
+    }
+
     fn redraw(&mut self) -> Result<()> {
         self.actions += codes::CLEAR;
         self.actions += codes::MOVE_HOME;
@@ -182,13 +221,16 @@ impl ViewState {
         let (chunks, last) = data.as_chunks::<16>();
         let last = if last.is_empty() { None } else { Some(last) };
         for (i, c) in chunks.iter().map(|a| &a[..]).chain(last).enumerate() {
-            let pos = (i + self.lines.start) * 16;
+            let line = i + self.lines.start;
+            let pos = line * 16;
+            let cur = (line == self.line).then_some(self.col);
+
             self.actions += &codes::move_to!(0, i + 2);
             print::line_num(&mut self.actions, true, pos, 8);
             self.actions += "  ";
-            print::hex_line(&mut self.actions, true, c, 8, 16);
+            print::hex_line(&mut self.actions, true, c, 8, 16, cur);
             self.actions += "  ";
-            print::ascii_line(&mut self.actions, true, c, 8, 16, false);
+            print::ascii_line(&mut self.actions, true, c, 8, 16, false, cur);
         }
 
         self.actions += codes::move_to!(0, 9999);

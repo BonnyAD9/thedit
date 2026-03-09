@@ -1,4 +1,7 @@
-use termal::{codes, formatmc};
+use termal::{
+    codes::{self},
+    formatmc,
+};
 
 pub fn header(buf: &mut String, color: bool) {
     *buf += &formatmc!(
@@ -20,15 +23,23 @@ pub fn hex_line(
     data: &[u8],
     split: usize,
     cnt: usize,
+    cur: Option<usize>,
 ) {
     let mut written = 0;
     'outer: while written < cnt {
         let next_split = written + split;
         while written < next_split {
             if written >= data.len() {
-                *buf += "   ";
+                if Some(written) == cur {
+                    *buf += &formatmc!(color, "{'inverse}  {'_} ");
+                } else {
+                    *buf += "   ";
+                }
             } else {
                 byte_color(buf, color, data[written]);
+                if Some(written) == cur {
+                    *buf += codes::INVERSE;
+                }
                 *buf += &formatmc!(color, "{:02x}{'_} ", data[written]);
             }
             written += 1;
@@ -50,6 +61,7 @@ pub fn ascii_line(
     split: usize,
     cnt: usize,
     utf: bool,
+    cur: Option<usize>,
 ) {
     *buf += &formatmc!(color, "{'gr}|");
     let mut written = 0;
@@ -60,6 +72,9 @@ pub fn ascii_line(
                 buf.push(' ');
             } else {
                 byte_color(buf, color, data[written]);
+                if Some(written) == cur {
+                    *buf += codes::INVERSE;
+                }
                 *buf +=
                     &formatmc!(color, "{}{'_}", get_ascii(data[written], utf));
             }

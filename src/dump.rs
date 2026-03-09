@@ -26,9 +26,9 @@ pub fn dump(mut src: impl BufRead, args: Args) -> Result<()> {
         print::line_num(&mut line, color, pos, 8);
         if red != 0 {
             line += "  ";
-            print::hex_line(&mut line, color, &buf[..red], 8, 16);
+            print::hex_line(&mut line, color, &buf[..red], 8, 16, None);
             line += "  ";
-            print::ascii_line(&mut line, color, &buf[..red], 8, 16, utf);
+            print::ascii_line(&mut line, color, &buf[..red], 8, 16, utf, None);
         }
 
         println!("{line}");
