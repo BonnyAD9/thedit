@@ -1,7 +1,7 @@
 # thedit
 
-**Terminal Hex EDITor**. Right now only works as colorful **hexdump**. I would
-like to make this into full interactive terminal hex editor in the future.
+**Terminal Hex EDITor**. Right now only works as hex viewer. I would like to
+make this into full interactive terminal hex editor in the future.
 
 <p align="center">
     <img src="https://github.com/user-attachments/assets/eadcffcb-0f14-4ea9-92f1-819b06b89cb6" />

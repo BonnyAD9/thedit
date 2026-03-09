@@ -1,12 +1,12 @@
 use std::{
     fs::File,
-    io::{Read, Seek, SeekFrom},
+    io::{Seek, SeekFrom},
     ops::Range,
 };
 
 use crate::{err::Result, utils::read_to_eof};
 
-struct FileView {
+pub struct FileView {
     file: File,
     data: Vec<u8>,
     range: Range<usize>,
@@ -18,15 +18,6 @@ impl FileView {
             file,
             data: vec![],
             range: 0..0,
-        }
-    }
-
-    pub fn try_view(&self, range: Range<usize>) -> Option<&[u8]> {
-        assert!(range.start <= range.end);
-        if range.start > self.range.start && range.end <= self.range.end {
-            Some(self.view_unchecked(range))
-        } else {
-            None
         }
     }
 
@@ -47,12 +38,17 @@ impl FileView {
 
         self.range = start..start + red;
 
-        Ok(&self.data[range.start - self.range.end
-            ..red.min(range.end - self.range.end)])
+        Ok(&self.data[range.start - self.range.start
+            ..red.min(range.end - self.range.start)])
+    }
+
+    pub fn length(&mut self) -> Result<usize> {
+        Ok(self.file.seek(SeekFrom::End(0))? as usize)
     }
 
     fn view_unchecked(&self, range: Range<usize>) -> &[u8] {
-        &self.data[range.start - self.range.start..range.end - self.range.end]
+        &self.data
+            [range.start - self.range.start..range.end - self.range.start]
     }
 }
 

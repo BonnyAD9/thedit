@@ -10,6 +10,8 @@ pub enum ErrorKind {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Pareg(#[from] pareg::ArgError),
+    #[error(transparent)]
+    Termal(#[from] termal::Error),
 }
 
 #[derive(Debug)]

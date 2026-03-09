@@ -1,23 +1,27 @@
 use std::{
     fs::File,
-    io::{BufRead, BufReader, IsTerminal, stdin, stdout},
+    io::{BufReader, IsTerminal, stdin},
     process::ExitCode,
 };
 
 use pareg::Pareg;
-use termal::{eprintacln, printmcln};
+use termal::eprintacln;
 
 use crate::{
     cli::{Args, help},
+    dump::dump,
     err::Result,
-    utils::read_to_eof,
+    file_view::FileView,
+    view::view,
 };
 
 mod cli;
+mod dump;
 mod err;
-//mod file_view;
+mod file_view;
 mod print;
 mod utils;
+mod view;
 
 fn main() -> ExitCode {
     match start() {
@@ -51,50 +55,6 @@ fn start() -> Result<()> {
     if args.dump() {
         dump(BufReader::new(File::open(f)?), args)
     } else {
-        eprintacln!(
-            "{'m}warning: {'_}The default action may change in the future. \
-            Use `{'y}-d{'_}` for hexdump."
-        );
-        dump(BufReader::new(File::open(f)?), args)
+        view(FileView::new(File::open(f)?))
     }
-}
-
-fn dump(mut src: impl BufRead, args: Args) -> Result<()> {
-    let color = stdout().is_terminal();
-    if color {
-        printmcln!(
-            color,
-            "          {'y}00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F   \
-            {'y}01234567 89ABCDEF{'_}"
-        );
-    }
-
-    let utf = args.utf();
-
-    let target = args.count.get();
-    let mut cur = 0;
-
-    let mut pos = 0;
-    let mut buf = [0; 16];
-
-    let mut line = String::new();
-    let mut red = 1;
-    while red != 0 && cur < target {
-        red = read_to_eof(&mut src, &mut buf)?;
-
-        line.clear();
-        print::line_num(&mut line, color, pos, 8);
-        if red != 0 {
-            line += "  ";
-            print::hex_line(&mut line, color, &buf[..red], 8, 16);
-            line += "  ";
-            print::ascii_line(&mut line, color, &buf[..red], 8, 16, utf);
-        }
-
-        println!("{line}");
-        pos += red;
-        cur += 1;
-    }
-
-    Ok(())
 }

@@ -29,11 +29,11 @@ impl Args {
                 "-c" | "--count" => {
                     res.count = args.next_arg()?;
                     res.flags |= ArgFlags::DUMP;
-                },
+                }
                 "--head" => {
                     res.count = LineCount::Auto;
                     res.flags |= ArgFlags::DUMP;
-                },
+                }
                 "--utf" => res.flags |= ArgFlags::UTF,
                 "--stdin" => {
                     res.file = None;

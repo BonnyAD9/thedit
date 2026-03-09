@@ -6,5 +6,5 @@ edition = "2024"
 [dependencies]
 bitflags = "2.11.0"
 pareg = "0.12.0"
-termal = { version = "4.2.1", features = ["raw"] }
+termal = { version = "4.2.1", features = ["raw", "events"] }
 thiserror = "2.0.18"

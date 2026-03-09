@@ -1,5 +1,13 @@
 use termal::{codes, formatmc};
 
+pub fn header(buf: &mut String, color: bool) {
+    *buf += &formatmc!(
+        color,
+        "          {'y}00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F   \
+        {'y}01234567 89ABCDEF{'_}"
+    );
+}
+
 pub fn line_num(buf: &mut String, color: bool, num: usize, len: usize) {
     let s = format!("{num:X}");
     let lead = len.saturating_sub(s.len());
