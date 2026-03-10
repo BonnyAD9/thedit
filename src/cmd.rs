@@ -29,4 +29,8 @@ pub enum Cmd {
     ScrollToView,
     #[arg("start-command")]
     StartCommand,
+    #[arg("move-to-top")]
+    MoveToTop,
+    #[arg("move-to-bottom")]
+    MoveToBottom,
 }

@@ -43,15 +43,17 @@ impl KeyNode {
         res.add_cmd(p("down"), vec![Cmd::MoveDown]);
         res.add_cmd(p("k"), vec![Cmd::MoveUp]);
         res.add_cmd(p("up"), vec![Cmd::MoveUp]);
-        res.add_cmd(p("h"), vec![Cmd::MoveLeft]);
-        res.add_cmd(p("left"), vec![Cmd::MoveLeft]);
-        res.add_cmd(p("l"), vec![Cmd::MoveRight]);
-        res.add_cmd(p("right"), vec![Cmd::MoveRight]);
+        res.add_cmd(p("h"), vec![Cmd::MoveLeftWrap]);
+        res.add_cmd(p("left"), vec![Cmd::MoveLeftWrap]);
+        res.add_cmd(p("l"), vec![Cmd::MoveRightWrap]);
+        res.add_cmd(p("right"), vec![Cmd::MoveRightWrap]);
         res.add_cmd(p("ctrl-y"), vec![Cmd::ScrollUp]);
         res.add_cmd(p("ctrl-e"), vec![Cmd::ScrollDown]);
         res.add_cmd(p("ctrl-u"), vec![Cmd::ScrollUpHalf]);
         res.add_cmd(p("ctrl-d"), vec![Cmd::ScrollDownHalf]);
         res.add_cmd(p(":"), vec![Cmd::StartCommand]);
+        res.add_cmd(p("shift-g"), vec![Cmd::MoveToBottom]);
+        res.add_cmd(p("g g"), vec![Cmd::MoveToTop]);
 
         res
     }

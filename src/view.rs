@@ -186,6 +186,8 @@ impl ViewState<'_> {
                 self.scroll_to_view(cnt.unwrap_or(self.line), false)
             }
             Cmd::StartCommand => self.typed.push(':'),
+            Cmd::MoveToTop => self.move_to_top(),
+            Cmd::MoveToBottom => self.move_to_bottom(),
         }
     }
 
@@ -218,9 +220,15 @@ impl ViewState<'_> {
         let rp = self.col as isize + cnt;
         let amt = rp.unsigned_abs();
         if rp < 0 {
+            if self.line == 0 {
+                return;
+            }
             self.col = 16 - amt % 16;
             self.move_down(rp / 16 - 1);
         } else {
+            if self.line == self.max_line && amt >= 16 {
+                return;
+            }
             self.col = amt % 16;
             self.move_down(rp / 16);
         }
@@ -276,6 +284,25 @@ impl ViewState<'_> {
         Ok(())
     }
 
+    fn move_to_top(&mut self) {
+        let vis_lines = self.vis_lines();
+        self.lines.start = 0;
+        self.lines.end = vis_lines;
+        self.line = 0;
+        self.redraw = true;
+    }
+
+    fn move_to_bottom(&mut self) {
+        let vis_lines = self.vis_lines();
+        if self.max_line <= vis_lines {
+            return;
+        }
+        self.lines.end = self.max_line + 1;
+        self.lines.start = self.lines.end - vis_lines;
+        self.line = self.max_line;
+        self.redraw = true;
+    }
+
     fn flush(&mut self) -> Result<()> {
         self.term.flushed(&self.actions)?;
         self.actions.clear();
@@ -283,6 +310,6 @@ impl ViewState<'_> {
     }
 
     fn vis_lines(&self) -> usize {
-        self.lines.end
+        self.height - 2
     }
 }
