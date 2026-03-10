@@ -16,15 +16,16 @@ use crate::{
 };
 
 mod cli;
+mod cmd;
+mod cmd_key;
 mod dump;
 mod err;
 mod file_view;
+mod key_node;
+mod keys;
 mod print;
 mod utils;
 mod view;
-mod cmd_key;
-mod key_node;
-mod cmd;
 
 fn main() -> ExitCode {
     match start() {

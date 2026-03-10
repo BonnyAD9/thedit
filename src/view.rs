@@ -5,7 +5,7 @@ use termal::{
     raw::{
         Terminal,
         events::{
-            Event, Key, KeyCode, Modifiers,
+            Event, Key, KeyCode,
             mouse::{self, Mouse},
         },
         raw_guard, term_size,
@@ -13,24 +13,31 @@ use termal::{
     reset_terminal,
 };
 
-use crate::{err::Result, file_view::FileView, print};
+use crate::{
+    cmd::Cmd, cmd_key::CmdKey, err::Result, file_view::FileView,
+    key_node::KeyNode, print,
+};
 
-struct ViewState {
+struct ViewState<'a> {
     file: FileView,
     lines: Range<usize>,
     height: usize,
     actions: String,
     term: Terminal,
     exit: bool,
+    redraw: bool,
     max_line: usize,
     typed: String,
     message: String,
     line: usize,
     col: usize,
+    controls: &'a KeyNode,
+    ctrl_state: &'a KeyNode,
 }
 
 pub fn view(file: FileView) -> Result<()> {
     let height = term_size()?.char_height;
+    let controls = KeyNode::default_controls();
     let mut state = ViewState {
         file,
         lines: 0..height - 2,
@@ -38,11 +45,14 @@ pub fn view(file: FileView) -> Result<()> {
         actions: String::new(),
         term: Terminal::stdio(),
         exit: false,
+        redraw: true,
         max_line: 0,
         typed: String::new(),
         message: String::new(),
         line: 0,
         col: 0,
+        controls: &controls,
+        ctrl_state: &controls,
     };
 
     termal::register_reset_on_panic();
@@ -51,7 +61,7 @@ pub fn view(file: FileView) -> Result<()> {
     res
 }
 
-impl ViewState {
+impl ViewState<'_> {
     fn run(&mut self) -> Result<()> {
         self.max_line = (self.file.length()?.saturating_sub(1)) / 16;
 
@@ -60,23 +70,25 @@ impl ViewState {
         self.actions += codes::ENABLE_MOUSE_XY_EXT;
 
         const TIMEOUT: Duration = Duration::from_millis(50);
-        self.redraw()?;
         while !self.exit {
+            if self.redraw {
+                self.redraw()?;
+            }
             self.flush()?;
+
             let Some(evt) = self.term.read_timeout(TIMEOUT)? else {
                 let height = term_size()?.char_height;
                 if height != self.height {
                     self.height = height;
                     self.lines.end = self.lines.start + self.height - 2;
-                    self.redraw()?;
+                    self.redraw = true;
                 }
                 continue;
             };
 
-            #[allow(clippy::single_match)]
             match evt {
-                Event::KeyPress(key) => self.key_event(key)?,
-                Event::Mouse(mouse) => self.mouse_event(mouse)?,
+                Event::KeyPress(key) => self.key_event(key),
+                Event::Mouse(mouse) => self.mouse_event(mouse),
                 _ => {}
             }
         }
@@ -84,70 +96,68 @@ impl ViewState {
         Ok(())
     }
 
-    fn key_event(&mut self, key: Key) -> Result<()> {
+    fn key_event(&mut self, key: Key) {
         if self.typed.starts_with(':') {
             if key.code == KeyCode::Enter {
-                return self.command();
+                self.command();
+                return;
             }
             if let Some(chr) = key.key_char {
                 self.typed.push(chr);
-                self.redraw()?;
-                return Ok(());
+                self.redraw = true;
+                return;
             }
             match key.code {
                 KeyCode::Backspace => {
                     self.typed.pop();
-                    self.redraw()?;
+                    self.redraw = true;
                 }
                 KeyCode::Esc => {
                     self.typed.clear();
-                    self.redraw()?;
+                    self.redraw = true;
                 }
                 _ => {}
             }
 
-            return Ok(());
+            return;
         }
 
-        match key.code {
-            KeyCode::Char('j') | KeyCode::Down => self.move_down(1),
-            KeyCode::Char('k') | KeyCode::Up => self.move_down(-1),
-            KeyCode::Char('h') | KeyCode::Left => self.move_right(-1),
-            KeyCode::Char('l') | KeyCode::Right => self.move_right(1),
-            KeyCode::Char('y')
-                if key.modifiers.contains(Modifiers::CONTROL) =>
-            {
-                self.scroll_up(1)
-            }
-            KeyCode::Char('e')
-                if key.modifiers.contains(Modifiers::CONTROL) =>
-            {
-                self.scroll_down(1)
-            }
-            KeyCode::Char('u')
-                if key.modifiers.contains(Modifiers::CONTROL) =>
-            {
-                self.scroll_up((self.lines.end - self.lines.start) / 2)
-            }
-            KeyCode::Char('d')
-                if key.modifiers.contains(Modifiers::CONTROL) =>
-            {
-                self.scroll_down((self.lines.end - self.lines.start) / 2)
-            }
-            KeyCode::Char(':') => {
-                self.message.clear();
-                self.typed.push(':');
-                self.redraw()
-            }
-            KeyCode::Esc => {
-                self.message.clear();
-                self.redraw()
-            }
-            _ => Ok(()),
+        if key.code == KeyCode::Esc {
+            self.reset_command();
+            return;
+        }
+
+        let cmd_key: CmdKey = key.into();
+        if !self.typed.is_empty() {
+            self.typed.push(' ');
+        }
+        self.typed += &cmd_key.to_string();
+        self.redraw = true;
+
+        let Some(cstate) = self.ctrl_state.get(cmd_key) else {
+            self.reset_command();
+            return;
+        };
+
+        if cstate.cmd().is_empty() {
+            self.ctrl_state = cstate;
+            return;
+        }
+
+        self.reset_command();
+        for c in cstate.cmd() {
+            self.do_cmd(*c, None);
         }
     }
 
-    fn command(&mut self) -> Result<()> {
+    fn reset_command(&mut self) {
+        self.redraw |= !self.typed.is_empty() && !self.message.is_empty();
+        self.typed.clear();
+        self.message.clear();
+        self.ctrl_state = self.controls;
+    }
+
+    fn command(&mut self) {
         if matches!(self.typed.as_str(), ":q" | ":x" | ":quit" | ":exit") {
             self.exit = true;
         } else {
@@ -155,59 +165,83 @@ impl ViewState {
                 &formatc!("{'drb}error: unknown command `{}`{'_}", self.typed);
         }
         self.typed.clear();
-        self.redraw()
+        self.redraw = true;
     }
 
-    fn mouse_event(&mut self, evt: Mouse) -> Result<()> {
-        match evt.event {
-            mouse::Event::ScrollDown => self.scroll_down(1),
-            mouse::Event::ScrollUp => self.scroll_up(1),
-            _ => Ok(()),
+    fn do_cmd(&mut self, cmd: Cmd, cnt: Option<usize>) {
+        let c1 = cnt.unwrap_or(1);
+        match cmd {
+            Cmd::Exit => self.exit = true,
+            Cmd::ScrollDown => self.scroll_down(c1),
+            Cmd::ScrollUp => self.scroll_up(c1),
+            Cmd::ScrollDownHalf => self.scroll_down(self.vis_lines() / 2 * c1),
+            Cmd::ScrollUpHalf => self.scroll_up(self.vis_lines() / 2 * c1),
+            Cmd::MoveRight => self.move_right(c1 as isize),
+            Cmd::MoveLeft => self.move_right(-(c1 as isize)),
+            Cmd::MoveDown => self.move_down(c1 as isize),
+            Cmd::MoveUp => self.move_down(-(c1 as isize)),
+            Cmd::MoveRightWrap => self.move_right_wrap(c1 as isize),
+            Cmd::MoveLeftWrap => self.move_right_wrap(-(c1 as isize)),
+            Cmd::ScrollToView => {
+                self.scroll_to_view(cnt.unwrap_or(self.line), false)
+            }
+            Cmd::StartCommand => self.typed.push(':'),
         }
     }
 
-    fn scroll_down(&mut self, cnt: usize) -> Result<()> {
+    fn mouse_event(&mut self, evt: Mouse) {
+        match evt.event {
+            mouse::Event::ScrollDown => self.scroll_down(1),
+            mouse::Event::ScrollUp => self.scroll_up(1),
+            _ => {}
+        }
+    }
+
+    fn scroll_down(&mut self, cnt: usize) {
         self.lines.start = self.max_line.min(self.lines.start + cnt);
         self.lines.end = self.lines.start + self.height - 2;
-        self.redraw()
+        self.redraw = true;
     }
 
-    fn scroll_up(&mut self, cnt: usize) -> Result<()> {
+    fn scroll_up(&mut self, cnt: usize) {
         self.lines.start = self.lines.start.saturating_sub(cnt);
         self.lines.end = self.lines.start + self.height - 2;
-        self.redraw()
+        self.redraw = true;
     }
 
-    fn move_right(&mut self, cnt: isize) -> Result<()> {
+    fn move_right(&mut self, cnt: isize) {
+        self.col = self.col.saturating_add_signed(cnt).min(15);
+        self.redraw = true;
+    }
+
+    fn move_right_wrap(&mut self, cnt: isize) {
         let rp = self.col as isize + cnt;
         let amt = rp.unsigned_abs();
         if rp < 0 {
             self.col = 16 - amt % 16;
-            self.move_down(rp / 16 - 1)
+            self.move_down(rp / 16 - 1);
         } else {
             self.col = amt % 16;
-            self.move_down(rp / 16)
+            self.move_down(rp / 16);
         }
     }
 
-    fn move_down(&mut self, cnt: isize) -> Result<()> {
+    fn move_down(&mut self, cnt: isize) {
         self.line = self.line.saturating_add_signed(cnt).min(self.max_line);
-        self.scroll_to_view(self.line, true)
+        self.scroll_to_view(self.line, true);
     }
 
-    fn scroll_to_view(&mut self, line: usize, redraw: bool) -> Result<()> {
+    fn scroll_to_view(&mut self, line: usize, redraw: bool) {
         if line < self.lines.start {
             self.lines.start = line;
             self.lines.end = self.lines.start + self.height - 2;
-            self.redraw()
+            self.redraw = true;
         } else if line >= self.lines.end {
             self.lines.end = line + 1;
             self.lines.start = self.lines.end + 2 - self.height;
-            self.redraw()
+            self.redraw = true;
         } else if redraw {
-            self.redraw()
-        } else {
-            Ok(())
+            self.redraw = true;
         }
     }
 
@@ -246,5 +280,9 @@ impl ViewState {
         self.term.flushed(&self.actions)?;
         self.actions.clear();
         Ok(())
+    }
+
+    fn vis_lines(&self) -> usize {
+        self.lines.end
     }
 }
