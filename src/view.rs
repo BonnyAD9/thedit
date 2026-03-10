@@ -135,7 +135,10 @@ impl ViewState<'_> {
         self.redraw = true;
 
         let Some(cstate) = self.ctrl_state.get(cmd_key) else {
+            let err =
+                formatc!("{'drb}error: unknown command `{}`.{'_}", self.typed);
             self.reset_command();
+            self.message = err;
             return;
         };
 
