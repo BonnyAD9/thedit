@@ -22,6 +22,9 @@ mod file_view;
 mod print;
 mod utils;
 mod view;
+mod cmd_key;
+mod key_node;
+mod cmd;
 
 fn main() -> ExitCode {
     match start() {
