@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use pareg::ArgInto;
 
-use crate::{cmd::Cmd, cmd_key::CmdKey, keys::Keys};
+use crate::view::ctrl::{cmd::Cmd, cmd_key::CmdKey, keys::Keys};
 
 #[derive(Debug, Clone, Default)]
 pub struct KeyNode {

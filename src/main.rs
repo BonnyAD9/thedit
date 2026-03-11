@@ -16,13 +16,9 @@ use crate::{
 };
 
 mod cli;
-mod cmd;
-mod cmd_key;
 mod dump;
 mod err;
 mod file_view;
-mod key_node;
-mod keys;
 mod print;
 mod utils;
 mod view;

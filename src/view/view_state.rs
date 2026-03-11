@@ -8,17 +8,18 @@ use termal::{
             Event, Key, KeyCode,
             mouse::{self, Mouse},
         },
-        raw_guard, term_size,
+        term_size,
     },
-    reset_terminal,
 };
 
 use crate::{
-    cmd::Cmd, cmd_key::CmdKey, err::Result, file_view::FileView,
-    key_node::KeyNode, print,
+    err::Result,
+    file_view::FileView,
+    print,
+    view::ctrl::{Cmd, CmdKey, KeyNode},
 };
 
-struct ViewState<'a> {
+pub struct ViewState<'a> {
     file: FileView,
     lines: Range<usize>,
     height: usize,
@@ -35,34 +36,27 @@ struct ViewState<'a> {
     ctrl_state: &'a KeyNode,
 }
 
-pub fn view(file: FileView) -> Result<()> {
-    let height = term_size()?.char_height;
-    let controls = KeyNode::default_controls();
-    let mut state = ViewState {
-        file,
-        lines: 0..height - 2,
-        height,
-        actions: String::new(),
-        term: Terminal::stdio(),
-        exit: false,
-        redraw: true,
-        max_line: 0,
-        typed: String::new(),
-        message: String::new(),
-        line: 0,
-        col: 0,
-        controls: &controls,
-        ctrl_state: &controls,
-    };
+impl<'a> ViewState<'a> {
+    pub fn new(file: FileView, height: usize, controls: &'a KeyNode) -> Self {
+        Self {
+            file,
+            lines: 0..height - 2,
+            height,
+            actions: String::new(),
+            term: Terminal::stdio(),
+            exit: false,
+            redraw: true,
+            max_line: 0,
+            typed: String::new(),
+            message: String::new(),
+            line: 0,
+            col: 0,
+            controls,
+            ctrl_state: controls,
+        }
+    }
 
-    termal::register_reset_on_panic();
-    let res = raw_guard(true, || state.run());
-    reset_terminal();
-    res
-}
-
-impl ViewState<'_> {
-    fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) -> Result<()> {
         self.max_line = (self.file.length()?.saturating_sub(1)) / 16;
 
         self.actions += codes::ENABLE_ALTERNATIVE_BUFFER;

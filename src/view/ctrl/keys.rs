@@ -1,6 +1,6 @@
 use pareg::{ArgInto, FromArg};
 
-use crate::cmd_key::CmdKey;
+use crate::view::ctrl::cmd_key::CmdKey;
 
 pub struct Keys(pub Vec<CmdKey>);
 
