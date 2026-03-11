@@ -60,9 +60,11 @@ impl ViewState {
         const TIMEOUT: Duration = Duration::from_millis(50);
         while !self.exit {
             if self.redraw {
+                self.actions.clear();
                 self.redraw()?;
             }
             self.flush()?;
+            self.redraw = false;
 
             let Some(evt) = self.term.read_timeout(TIMEOUT)? else {
                 let height = term_size()?.char_height;

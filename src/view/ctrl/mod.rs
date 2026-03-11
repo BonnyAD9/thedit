@@ -47,7 +47,10 @@ impl Ctrl {
             return None;
         }
 
-        let (cmd, cnt) = self.cmd.type_key(key.into())?;
+        let key: CmdKey = key.into();
+        self.typed += &key.to_string();
+
+        let (cmd, cnt) = self.cmd.type_key(key)?;
 
         let Some(cmd) = cmd else {
             let msg = formatc!(
