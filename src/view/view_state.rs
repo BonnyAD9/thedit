@@ -1,11 +1,11 @@
 use std::{ops::Range, time::Duration};
 
 use termal::{
-    codes, formatc,
+    codes,
     raw::{
         Terminal,
         events::{
-            Event, Key, KeyCode,
+            Event, Key,
             mouse::{self, Mouse},
         },
         term_size,
@@ -16,28 +16,25 @@ use crate::{
     err::Result,
     file_view::FileView,
     print,
-    view::ctrl::{Cmd, CmdKey, KeyNode},
+    view::ctrl::{Cmd, Ctrl},
 };
 
-pub struct ViewState<'a> {
+pub struct ViewState {
     file: FileView,
     lines: Range<usize>,
+    controls: Ctrl,
     height: usize,
     actions: String,
     term: Terminal,
     exit: bool,
     redraw: bool,
     max_line: usize,
-    typed: String,
-    message: String,
     line: usize,
     col: usize,
-    controls: &'a KeyNode,
-    ctrl_state: &'a KeyNode,
 }
 
-impl<'a> ViewState<'a> {
-    pub fn new(file: FileView, height: usize, controls: &'a KeyNode) -> Self {
+impl ViewState {
+    pub fn new(file: FileView, height: usize) -> Self {
         Self {
             file,
             lines: 0..height - 2,
@@ -47,12 +44,9 @@ impl<'a> ViewState<'a> {
             exit: false,
             redraw: true,
             max_line: 0,
-            typed: String::new(),
-            message: String::new(),
             line: 0,
             col: 0,
-            controls,
-            ctrl_state: controls,
+            controls: Ctrl::default_controls(),
         }
     }
 
@@ -91,78 +85,11 @@ impl<'a> ViewState<'a> {
     }
 
     fn key_event(&mut self, key: Key) {
-        if self.typed.starts_with(':') {
-            if key.code == KeyCode::Enter {
-                self.command();
-                return;
-            }
-            if let Some(chr) = key.key_char {
-                self.typed.push(chr);
-                self.redraw = true;
-                return;
-            }
-            match key.code {
-                KeyCode::Backspace => {
-                    self.typed.pop();
-                    self.redraw = true;
-                }
-                KeyCode::Esc => {
-                    self.typed.clear();
-                    self.redraw = true;
-                }
-                _ => {}
-            }
-
-            return;
-        }
-
-        if key.code == KeyCode::Esc {
-            self.reset_command();
-            return;
-        }
-
-        let cmd_key: CmdKey = key.into();
-        if !self.typed.is_empty() {
-            self.typed.push(' ');
-        }
-        self.typed += &cmd_key.to_string();
         self.redraw = true;
-
-        let Some(cstate) = self.ctrl_state.get(cmd_key) else {
-            let err =
-                formatc!("{'drb}error: unknown command `{}`.{'_}", self.typed);
-            self.reset_command();
-            self.message = err;
+        let Some((cmd, amt)) = self.controls.key_press(key) else {
             return;
         };
-
-        if cstate.cmd().is_empty() {
-            self.ctrl_state = cstate;
-            return;
-        }
-
-        self.reset_command();
-        for c in cstate.cmd() {
-            self.do_cmd(*c, None);
-        }
-    }
-
-    fn reset_command(&mut self) {
-        self.redraw |= !self.typed.is_empty() && !self.message.is_empty();
-        self.typed.clear();
-        self.message.clear();
-        self.ctrl_state = self.controls;
-    }
-
-    fn command(&mut self) {
-        if matches!(self.typed.as_str(), ":q" | ":x" | ":quit" | ":exit") {
-            self.exit = true;
-        } else {
-            self.message +=
-                &formatc!("{'drb}error: unknown command `{}`{'_}", self.typed);
-        }
-        self.typed.clear();
-        self.redraw = true;
+        self.do_cmd(cmd, amt);
     }
 
     fn do_cmd(&mut self, cmd: Cmd, cnt: Option<usize>) {
@@ -182,7 +109,7 @@ impl<'a> ViewState<'a> {
             Cmd::ScrollToView => {
                 self.scroll_to_view(cnt.unwrap_or(self.line), false)
             }
-            Cmd::StartCommand => self.typed.push(':'),
+            Cmd::StartCommand => self.controls.start_command(),
             Cmd::MoveToTop => self.move_to_top(),
             Cmd::MoveToBottom => self.move_to_bottom(),
         }
@@ -273,11 +200,7 @@ impl<'a> ViewState<'a> {
         }
 
         self.actions += codes::move_to!(0, 9999);
-        if self.message.is_empty() {
-            self.actions += &self.typed;
-        } else {
-            self.actions += &self.message;
-        }
+        self.controls.display(&mut self.actions);
         Ok(())
     }
 

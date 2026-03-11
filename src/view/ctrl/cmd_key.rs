@@ -5,8 +5,8 @@ use termal::raw::events::{Key, KeyCode, Modifiers};
 
 #[derive(Debug, Eq, Hash, PartialEq, Copy, Clone)]
 pub struct CmdKey {
-    code: KeyCode,
-    modifiers: Modifiers,
+    pub code: KeyCode,
+    pub modifiers: Modifiers,
 }
 
 #[derive(Debug, Copy, Clone)]
