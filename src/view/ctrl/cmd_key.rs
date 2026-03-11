@@ -15,15 +15,6 @@ struct ParseKeyCode(KeyCode);
 #[derive(Debug, Copy, Clone)]
 struct ParseModifier(Modifiers);
 
-impl CmdKey {
-    pub fn unmod(code: impl Into<KeyCode>) -> Self {
-        Self {
-            code: code.into(),
-            modifiers: Modifiers::NONE,
-        }
-    }
-}
-
 impl Display for CmdKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for m in self.modifiers {
@@ -35,6 +26,7 @@ impl Display for CmdKey {
                 _ => return Err(std::fmt::Error),
             }
         }
+
         match self.code {
             KeyCode::Up => write!(f, "up"),
             KeyCode::Down => write!(f, "down"),
@@ -79,14 +71,16 @@ impl Display for CmdKey {
 
 impl<'a> FromArg<'a> for CmdKey {
     fn from_arg(arg: &'a str) -> pareg::Result<Self> {
-        let Some((mods, key)) = arg.rsplit_once('-') else {
-            return arg.arg_into::<ParseKeyCode>().map(Self::unmod);
-        };
-
         let mut modifiers = Modifiers::NONE;
-        for m in split_arg::<ParseModifier>(mods, "-")? {
-            modifiers |= m.0;
-        }
+
+        let key = if let Some((mods, key)) = arg.rsplit_once('-') {
+            for m in split_arg::<ParseModifier>(mods, "-")? {
+                modifiers |= m.0;
+            }
+            key
+        } else {
+            arg
+        };
 
         let code = key.arg_into::<ParseKeyCode>()?.0;
 

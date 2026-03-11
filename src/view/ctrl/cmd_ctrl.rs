@@ -87,7 +87,7 @@ impl CmdCtrl {
         res.add_cmd(p("ctrl-u"), Cmd::ScrollUpHalf);
         res.add_cmd(p("ctrl-d"), Cmd::ScrollDownHalf);
         res.add_cmd(p(":"), Cmd::StartCommand);
-        res.add_cmd(p("shift-g"), Cmd::MoveToBottom);
+        res.add_cmd(p("G"), Cmd::MoveToBottom);
         res.add_cmd(p("g g"), Cmd::MoveToTop);
 
         res
