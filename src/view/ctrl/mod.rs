@@ -88,6 +88,7 @@ impl Ctrl {
     pub fn default_controls() -> Self {
         Self {
             cmd: CmdCtrl::default_controls(),
+            command: CommandCtrl::default_controls(),
             ..Self::default()
         }
     }
