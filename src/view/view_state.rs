@@ -56,6 +56,7 @@ impl ViewState {
         self.actions += codes::ENABLE_ALTERNATIVE_BUFFER;
         self.actions += codes::ENABLE_MOUSE_XY_PR_TRACKING;
         self.actions += codes::ENABLE_MOUSE_XY_EXT;
+        self.flush()?;
 
         const TIMEOUT: Duration = Duration::from_millis(50);
         while !self.exit {
