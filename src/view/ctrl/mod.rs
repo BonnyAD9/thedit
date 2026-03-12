@@ -5,6 +5,8 @@ mod command_ctrl;
 mod key_node;
 mod keys;
 
+use std::{borrow::Cow, fmt::Display};
+
 use termal::{
     formatc,
     raw::events::{Key, KeyCode},
@@ -25,8 +27,12 @@ impl Ctrl {
         if self.typed.starts_with(':') {
             if key.code == KeyCode::Enter {
                 return match self.command.execute(&self.typed) {
-                    Ok(r) => Some(r),
+                    Ok(r) => {
+                        self.cancel();
+                        Some(r)
+                    }
                     Err(e) => {
+                        self.cancel();
                         self.message = formatc!("{'drb}error: {:-}{'_}", e);
                         None
                     }
@@ -83,6 +89,20 @@ impl Ctrl {
         } else {
             *buf += &self.typed;
         }
+    }
+
+    pub fn msg<'a>(&mut self, m: impl Into<Cow<'a, str>>) {
+        match m.into() {
+            Cow::Owned(m) => self.message = m,
+            Cow::Borrowed(m) => {
+                self.message.clear();
+                self.message += m;
+            }
+        }
+    }
+
+    pub fn err_msg(&mut self, m: impl Display) {
+        self.msg(formatc!("{'drb}error: {m}{'_}"));
     }
 
     pub fn default_controls() -> Self {

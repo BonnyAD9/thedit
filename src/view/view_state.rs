@@ -1,7 +1,7 @@
 use std::{ops::Range, time::Duration};
 
 use termal::{
-    codes,
+    codes, formatc,
     raw::{
         Terminal,
         events::{
@@ -28,6 +28,7 @@ pub struct ViewState {
     term: Terminal,
     exit: bool,
     redraw: bool,
+    big_endian: bool,
     max_line: usize,
     line: usize,
     col: usize,
@@ -43,6 +44,7 @@ impl ViewState {
             term: Terminal::stdio(),
             exit: false,
             redraw: true,
+            big_endian: true,
             max_line: 0,
             line: 0,
             col: 0,
@@ -78,7 +80,7 @@ impl ViewState {
             };
 
             match evt {
-                Event::KeyPress(key) => self.key_event(key),
+                Event::KeyPress(key) => self.key_event(key)?,
                 Event::Mouse(mouse) => self.mouse_event(mouse),
                 _ => {}
             }
@@ -87,15 +89,15 @@ impl ViewState {
         Ok(())
     }
 
-    fn key_event(&mut self, key: Key) {
+    fn key_event(&mut self, key: Key) -> Result<()> {
         self.redraw = true;
         let Some((cmd, amt)) = self.controls.key_press(key) else {
-            return;
+            return Ok(());
         };
-        self.do_cmd(cmd, amt);
+        self.do_cmd(cmd, amt)
     }
 
-    fn do_cmd(&mut self, cmd: Cmd, cnt: Option<usize>) {
+    fn do_cmd(&mut self, cmd: Cmd, cnt: Option<usize>) -> Result<()> {
         let c1 = cnt.unwrap_or(1);
         match cmd {
             Cmd::Exit => self.exit = true,
@@ -115,7 +117,13 @@ impl ViewState {
             Cmd::StartCommand => self.controls.start_command(),
             Cmd::MoveToTop => self.move_to_top(),
             Cmd::MoveToBottom => self.move_to_bottom(),
+            Cmd::ShowSigned => self.view_int(cnt.unwrap_or(4), true)?,
+            Cmd::ShowUnsigned => self.view_int(cnt.unwrap_or(4), false)?,
+            Cmd::SwapEndianness => self.big_endian = !self.big_endian,
+            Cmd::SetBigEndian => self.big_endian = true,
+            Cmd::SetLittleEndian => self.big_endian = false,
         }
+        Ok(())
     }
 
     fn mouse_event(&mut self, evt: Mouse) {
@@ -178,6 +186,52 @@ impl ViewState {
         } else if redraw {
             self.redraw = true;
         }
+    }
+
+    fn view_int(&mut self, amt: usize, signed: bool) -> Result<()> {
+        let start = self.line * 16 + self.col;
+        let end = start + amt;
+        if amt > 16 {
+            self.controls.err_msg("Maximum integet width is 16.");
+        }
+        if amt == 0 {
+            self.controls.msg("0");
+        }
+
+        let mut bg = codes::BLUE_DARK_BG;
+        let mut suf = formatc!("{'b}LE");
+        let data = self.file.view(start..end)?;
+        let res = if self.big_endian {
+            bg = codes::GREEN_DARK_BG;
+            suf = formatc!("{'g}BE");
+            Self::view_data(data.iter().copied())
+        } else {
+            Self::view_data(data.iter().rev().copied())
+        };
+
+        let res = if signed {
+            let sa = 8 * (16 - amt);
+            let mut res = (res as i128) << sa;
+            res >>= sa;
+            if res < 0 {
+                formatc!("{'black bold}{bg}{res}{'b}{suf}{'_}")
+            } else {
+                formatc!("{'black bold}{bg}+{res}{'b}{suf}{'_}")
+            }
+        } else {
+            formatc!("{'black bold}{bg}{res}{'b}{suf}{'_}")
+        };
+
+        self.controls.msg(res);
+        Ok(())
+    }
+
+    fn view_data(i: impl Iterator<Item = u8>) -> u128 {
+        let mut res = 0;
+        for i in i {
+            res = res << 8 | i as u128;
+        }
+        res
     }
 
     fn redraw(&mut self) -> Result<()> {

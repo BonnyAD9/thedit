@@ -89,6 +89,9 @@ impl CmdCtrl {
         res.add_cmd(p(":"), Cmd::StartCommand);
         res.add_cmd(p("G"), Cmd::MoveToBottom);
         res.add_cmd(p("g g"), Cmd::MoveToTop);
+        res.add_cmd(p("S U"), Cmd::ShowUnsigned);
+        res.add_cmd(p("S I"), Cmd::ShowSigned);
+        res.add_cmd(p("S E"), Cmd::SwapEndianness);
 
         res
     }

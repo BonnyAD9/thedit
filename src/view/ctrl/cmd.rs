@@ -1,7 +1,7 @@
 use pareg::FromArg;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, FromArg)]
-#[arg(exact)]
+#[arg(exact, split = '=')]
 pub enum Cmd {
     #[arg("exit")]
     Exit,
@@ -33,4 +33,14 @@ pub enum Cmd {
     MoveToTop,
     #[arg("move-to-bottom")]
     MoveToBottom,
+    #[arg("view-signed")]
+    ShowSigned,
+    #[arg("view-unsigned")]
+    ShowUnsigned,
+    #[arg("swap-endianness")]
+    SwapEndianness,
+    #[arg("set-big-endian")]
+    SetBigEndian,
+    #[arg("set-little-endian")]
+    SetLittleEndian,
 }
