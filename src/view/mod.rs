@@ -13,8 +13,8 @@ mod view_state;
 pub use self::{mode::*, pos::*};
 
 pub fn view(file: FileView) -> Result<()> {
-    let height = term_size()?.char_height;
-    let mut state = ViewState::new(file, height);
+    let size = term_size()?;
+    let mut state = ViewState::new(file, size.char_width, size.char_height);
 
     termal::register_reset_on_panic();
     let res = raw_guard(true, || state.run());

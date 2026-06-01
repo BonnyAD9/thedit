@@ -1,4 +1,4 @@
-use std::{ops::Range, time::Duration};
+use std::{fmt::Write, ops::Range, time::Duration};
 
 use termal::{
     codes, formatc,
@@ -10,6 +10,8 @@ use termal::{
         },
         term_size,
     },
+    term_text::TermText,
+    writec,
 };
 
 use crate::{
@@ -27,6 +29,7 @@ pub struct ViewState {
     lines: Range<usize>,
     controls: Ctrl,
     height: usize,
+    width: usize,
     actions: String,
     term: Terminal,
     exit: bool,
@@ -39,11 +42,12 @@ pub struct ViewState {
 }
 
 impl ViewState {
-    pub fn new(file: FileView, height: usize) -> Self {
+    pub fn new(file: FileView, width: usize, height: usize) -> Self {
         Self {
             file,
             lines: 0..height - 2,
             height,
+            width,
             actions: String::new(),
             term: Terminal::stdio(),
             exit: false,
@@ -75,9 +79,12 @@ impl ViewState {
             self.redraw = false;
 
             let Some(evt) = self.term.read_timeout(TIMEOUT)? else {
-                let height = term_size()?.char_height;
-                if height != self.height {
+                let siz = term_size()?;
+                let height = siz.char_height;
+                let width = siz.char_width;
+                if height != self.height || width != self.width {
                     self.height = height;
+                    self.width = width;
                     self.lines.end = self.lines.start + self.height - 2;
                     self.redraw = true;
                 }
@@ -105,6 +112,7 @@ impl ViewState {
     fn do_cmd(&mut self, cmd: Cmd, cnt: Option<usize>) -> Result<()> {
         let c1 = cnt.unwrap_or(1);
         match cmd {
+            Cmd::None => {}
             Cmd::Exit => self.exit = true,
             Cmd::ScrollDown => self.scroll_down(c1),
             Cmd::ScrollUp => self.scroll_up(c1),
@@ -212,6 +220,7 @@ impl ViewState {
         let end = start + amt;
         if amt > 16 {
             self.controls.err_msg("Maximum integer width is 16.");
+            return Ok(());
         }
         if amt == 0 {
             self.controls.msg("0");
@@ -331,7 +340,50 @@ impl ViewState {
         }
 
         self.actions += codes::move_to!(0, 9999);
-        self.controls.display(&mut self.actions);
+
+        let mut buf = String::new();
+        let start = self.controls.display(&mut buf);
+        let cursor = !buf.is_empty() && start;
+        let mut end = if start {
+            self.actions += &buf;
+            String::new()
+        } else {
+            buf + " "
+        };
+
+        if cursor {
+            self.actions += codes::CUR_SAVE;
+        }
+
+        end.push('▐');
+        end += codes::INVERSE;
+        end += match self.mode {
+            Mode::Normal => "NORMAL",
+            Mode::Visual => "VISUAL",
+        };
+        end += codes::RESET_INVERSE;
+        end.push('▌');
+        if self.big_endian {
+            _ = writec!(end, "{'g}BE{'_}");
+        } else {
+            _ = writec!(end, "{'b}LE{'_}");
+        }
+        _ = writec!(end, "{: >8},{: <2}", self.pos.line + 1, self.pos.col + 1);
+        if let Some(l) = self.sel_len() {
+            _ = writec!(end, " {l: >4}");
+        } else {
+            end += "     ";
+        }
+
+        let tt = TermText::new(&end);
+        let col = self.width.saturating_sub(tt.columns());
+        self.actions += &codes::column!(col);
+        self.actions += &end;
+
+        if cursor {
+            self.actions += codes::CUR_LOAD;
+        }
+
         Ok(())
     }
 

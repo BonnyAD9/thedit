@@ -88,11 +88,13 @@ impl Ctrl {
         self.typed.push(':');
     }
 
-    pub fn display(&self, buf: &mut String) {
+    pub fn display(&self, buf: &mut String) -> bool {
         if self.typed.is_empty() {
             *buf += &self.message;
+            true
         } else {
             *buf += &self.typed;
+            self.typed.starts_with(':')
         }
     }
 

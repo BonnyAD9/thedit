@@ -37,6 +37,11 @@ impl CmdCtrl {
         &mut self,
         key: CmdKey,
     ) -> Option<(Option<Cmd>, Option<usize>)> {
+        if self.cur != 0 && key.code == KeyCode::Esc {
+            self.cancel();
+            return Some((Some(Cmd::None), None));
+        }
+
         if self.cur == 0
             && let KeyCode::Char(c) = key.code
             && let Some(d) = c.to_digit(10)

@@ -5,6 +5,8 @@ use crate::view::Mode;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, FromArg)]
 #[arg(exact, split = '=')]
 pub enum Cmd {
+    #[arg("none")]
+    None,
     #[arg("exit")]
     Exit,
     #[arg("scroll-down")]
