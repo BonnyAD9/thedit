@@ -6,7 +6,11 @@ use termal::{
 use crate::{err::Result, file_view::FileView, view::view_state::ViewState};
 
 mod ctrl;
+mod mode;
+mod pos;
 mod view_state;
+
+pub use self::{mode::*, pos::*};
 
 pub fn view(file: FileView) -> Result<()> {
     let height = term_size()?.char_height;

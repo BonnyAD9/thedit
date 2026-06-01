@@ -24,14 +24,16 @@ pub fn hex_line(
     split: usize,
     cnt: usize,
     cur: Option<usize>,
+    sel: Option<(usize, usize)>,
 ) {
+    let (sel_start, sel_end) = sel.unwrap_or((usize::MAX, usize::MAX));
     let mut written = 0;
     'outer: while written < cnt {
         let next_split = written + split;
         while written < next_split {
             if written >= data.len() {
                 if Some(written) == cur {
-                    *buf += &formatmc!(color, "{'inverse}  {'_} ");
+                    *buf += &formatmc!(color, "{'inverse}  {'_inverse} ");
                 } else {
                     *buf += "   ";
                 }
@@ -39,8 +41,22 @@ pub fn hex_line(
                 byte_color(buf, color, data[written]);
                 if Some(written) == cur {
                     *buf += codes::INVERSE;
+                    if (sel_start..=sel_end).contains(&written) {
+                        *buf += codes::RESET_BG;
+                    }
+                } else if written == sel_start {
+                    *buf += codes::bg!(0x11, 0x33, 0x11);
                 }
-                *buf += &formatmc!(color, "{:02x}{'_} ", data[written]);
+                *buf += &formatmc!(color, "{:02x}", data[written]);
+                if Some(written) == cur {
+                    *buf += codes::RESET_INVERSE;
+                    if (sel_start..sel_end).contains(&written) {
+                        *buf += codes::bg!(0x11, 0x33, 0x11);
+                    }
+                } else if written == sel_end {
+                    *buf += codes::RESET_BG;
+                }
+                buf.push(' ');
             }
             written += 1;
             if written >= cnt {
@@ -52,8 +68,10 @@ pub fn hex_line(
     if written != 0 {
         buf.pop();
     }
+    *buf += codes::RESET;
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn ascii_line(
     buf: &mut String,
     color: bool,
@@ -62,7 +80,9 @@ pub fn ascii_line(
     cnt: usize,
     utf: bool,
     cur: Option<usize>,
+    sel: Option<(usize, usize)>,
 ) {
+    let (sel_start, sel_end) = sel.unwrap_or((usize::MAX, usize::MAX));
     *buf += &formatmc!(color, "{'gr}|");
     let mut written = 0;
     'outer: while written < cnt {
@@ -74,9 +94,21 @@ pub fn ascii_line(
                 byte_color(buf, color, data[written]);
                 if Some(written) == cur {
                     *buf += codes::INVERSE;
+                    if (sel_start..=sel_end).contains(&written) {
+                        *buf += codes::RESET_BG;
+                    }
+                } else if written == sel_start {
+                    *buf += codes::bg!(0x11, 0x33, 0x11);
                 }
-                *buf +=
-                    &formatmc!(color, "{}{'_}", get_ascii(data[written], utf));
+                *buf += &formatmc!(color, "{}", get_ascii(data[written], utf));
+                if Some(written) == cur {
+                    *buf += codes::RESET_INVERSE;
+                    if (sel_start..sel_end).contains(&written) {
+                        *buf += codes::bg!(0x11, 0x33, 0x11);
+                    }
+                } else if written == sel_end {
+                    *buf += codes::RESET_BG;
+                }
             }
             written += 1;
             if written >= cnt {
@@ -88,6 +120,7 @@ pub fn ascii_line(
         }
         buf.push(' ');
     }
+    *buf += codes::RESET;
     if data.len() >= cnt {
         *buf += &formatmc!(color, "{'gr}|{'_}");
     }

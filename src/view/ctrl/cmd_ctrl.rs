@@ -1,7 +1,10 @@
 use pareg::ArgInto;
 use termal::raw::events::KeyCode;
 
-use crate::view::ctrl::{Cmd, CmdKey, Keys, key_node::KeyNode};
+use crate::view::{
+    Mode,
+    ctrl::{Cmd, CmdKey, Keys, key_node::KeyNode},
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct CmdCtrl {
@@ -93,6 +96,7 @@ impl CmdCtrl {
         res.add_cmd(p("S I"), Cmd::ShowSigned);
         res.add_cmd(p("S E"), Cmd::SwapEndianness);
         res.add_cmd(p("esc"), Cmd::Cancel);
+        res.add_cmd(p("v"), Cmd::SetMode(Mode::Visual));
 
         res
     }

@@ -16,7 +16,10 @@ use crate::{
     err::Result,
     file_view::FileView,
     print,
-    view::ctrl::{Cmd, Ctrl},
+    view::{
+        Mode, Pos,
+        ctrl::{Cmd, Ctrl},
+    },
 };
 
 pub struct ViewState {
@@ -30,8 +33,9 @@ pub struct ViewState {
     redraw: bool,
     big_endian: bool,
     max_line: usize,
-    line: usize,
-    col: usize,
+    pos: Pos,
+    select: Option<Pos>,
+    mode: Mode,
 }
 
 impl ViewState {
@@ -46,9 +50,10 @@ impl ViewState {
             redraw: true,
             big_endian: true,
             max_line: 0,
-            line: 0,
-            col: 0,
+            pos: Pos::new(0, 0),
+            select: None,
             controls: Ctrl::default_controls(),
+            mode: Mode::Normal,
         }
     }
 
@@ -112,18 +117,27 @@ impl ViewState {
             Cmd::MoveRightWrap => self.move_right_wrap(c1 as isize),
             Cmd::MoveLeftWrap => self.move_right_wrap(-(c1 as isize)),
             Cmd::ScrollToView => {
-                self.scroll_to_view(cnt.unwrap_or(self.line), false)
+                self.scroll_to_view(cnt.unwrap_or(self.pos.line), false)
             }
             Cmd::StartCommand => self.controls.start_command(),
             Cmd::MoveToTop => self.move_to_top(),
             Cmd::MoveToBottom => self.move_to_bottom(),
-            Cmd::ShowSigned => self.view_int(cnt.unwrap_or(4), true)?,
-            Cmd::ShowUnsigned => self.view_int(cnt.unwrap_or(4), false)?,
+            Cmd::ShowSigned => {
+                let len = cnt.unwrap_or_else(|| self.sel_len().unwrap_or(4));
+                self.view_int(len, true)?;
+            }
+            Cmd::ShowUnsigned => {
+                let len = cnt.unwrap_or_else(|| self.sel_len().unwrap_or(4));
+                self.view_int(len, false)?;
+            }
             Cmd::SwapEndianness => self.big_endian = !self.big_endian,
             Cmd::SetBigEndian => self.big_endian = true,
             Cmd::SetLittleEndian => self.big_endian = false,
             Cmd::Cancel => {
                 self.cancel();
+            }
+            Cmd::SetMode(mode) => {
+                self.set_mode(mode);
             }
         }
         Ok(())
@@ -150,31 +164,32 @@ impl ViewState {
     }
 
     fn move_right(&mut self, cnt: isize) {
-        self.col = self.col.saturating_add_signed(cnt).min(15);
+        self.pos.col = self.pos.col.saturating_add_signed(cnt).min(15);
         self.redraw = true;
     }
 
     fn move_right_wrap(&mut self, cnt: isize) {
-        let rp = self.col as isize + cnt;
+        let rp = self.pos.col as isize + cnt;
         let amt = rp.unsigned_abs();
         if rp < 0 {
-            if self.line == 0 {
+            if self.pos.line == 0 {
                 return;
             }
-            self.col = 16 - amt % 16;
+            self.pos.col = 16 - amt % 16;
             self.move_down(rp / 16 - 1);
         } else {
-            if self.line == self.max_line && amt >= 16 {
+            if self.pos.line == self.max_line && amt >= 16 {
                 return;
             }
-            self.col = amt % 16;
+            self.pos.col = amt % 16;
             self.move_down(rp / 16);
         }
     }
 
     fn move_down(&mut self, cnt: isize) {
-        self.line = self.line.saturating_add_signed(cnt).min(self.max_line);
-        self.scroll_to_view(self.line, true);
+        self.pos.line =
+            self.pos.line.saturating_add_signed(cnt).min(self.max_line);
+        self.scroll_to_view(self.pos.line, true);
     }
 
     fn scroll_to_view(&mut self, line: usize, redraw: bool) {
@@ -192,10 +207,11 @@ impl ViewState {
     }
 
     fn view_int(&mut self, amt: usize, signed: bool) -> Result<()> {
-        let start = self.line * 16 + self.col;
+        let pos = self.select.map(|s| s.min(self.pos)).unwrap_or(self.pos);
+        let start = pos.line * 16 + pos.col;
         let end = start + amt;
         if amt > 16 {
-            self.controls.err_msg("Maximum integet width is 16.");
+            self.controls.err_msg("Maximum integer width is 16.");
         }
         if amt == 0 {
             self.controls.msg("0");
@@ -231,6 +247,19 @@ impl ViewState {
 
     fn cancel(&mut self) {
         self.controls.cancel();
+        self.set_mode(Mode::Normal);
+    }
+
+    fn set_mode(&mut self, mode: Mode) {
+        self.mode = mode;
+        match mode {
+            Mode::Visual => {
+                self.select = Some(self.pos);
+            }
+            Mode::Normal => {
+                self.select = None;
+            }
+        }
     }
 
     fn view_data(i: impl Iterator<Item = u8>) -> u128 {
@@ -241,10 +270,27 @@ impl ViewState {
         res
     }
 
+    fn sel_len(&self) -> Option<usize> {
+        let (a, b) = self.selection()?;
+        Some((b.line - a.line) * 16 + b.col - a.col + 1)
+    }
+
+    fn selection(&self) -> Option<(Pos, Pos)> {
+        let sel = self.select?;
+        if sel > self.pos {
+            Some((self.pos, sel))
+        } else {
+            Some((sel, self.pos))
+        }
+    }
+
     fn redraw(&mut self) -> Result<()> {
         self.actions += codes::CLEAR;
         self.actions += codes::MOVE_HOME;
         print::header(&mut self.actions, true);
+
+        let (sel_start, sel_end) =
+            self.selection().unwrap_or((Pos::MAX, Pos::MAX));
 
         let data =
             self.file.view(self.lines.start * 16..self.lines.end * 16)?;
@@ -253,14 +299,35 @@ impl ViewState {
         for (i, c) in chunks.iter().map(|a| &a[..]).chain(last).enumerate() {
             let line = i + self.lines.start;
             let pos = line * 16;
-            let cur = (line == self.line).then_some(self.col);
+            let cur = (line == self.pos.line).then_some(self.pos.col);
+
+            let sel = if (sel_start.line..=sel_end.line).contains(&line) {
+                let s = if sel_start.line < line {
+                    0
+                } else {
+                    sel_start.col
+                };
+                let e = if sel_end.line > line { 16 } else { sel_end.col };
+                Some((s, e))
+            } else {
+                None
+            };
 
             self.actions += &codes::move_to!(0, i + 2);
             print::line_num(&mut self.actions, true, pos, 8);
             self.actions += "  ";
-            print::hex_line(&mut self.actions, true, c, 8, 16, cur);
+            print::hex_line(&mut self.actions, true, c, 8, 16, cur, sel);
             self.actions += "  ";
-            print::ascii_line(&mut self.actions, true, c, 8, 16, false, cur);
+            print::ascii_line(
+                &mut self.actions,
+                true,
+                c,
+                8,
+                16,
+                false,
+                cur,
+                sel,
+            );
         }
 
         self.actions += codes::move_to!(0, 9999);
@@ -272,7 +339,7 @@ impl ViewState {
         let vis_lines = self.vis_lines();
         self.lines.start = 0;
         self.lines.end = vis_lines;
-        self.line = 0;
+        self.pos.line = 0;
         self.redraw = true;
     }
 
@@ -283,7 +350,7 @@ impl ViewState {
         }
         self.lines.end = self.max_line + 1;
         self.lines.start = self.lines.end - vis_lines;
-        self.line = self.max_line;
+        self.pos.line = self.max_line;
         self.redraw = true;
     }
 

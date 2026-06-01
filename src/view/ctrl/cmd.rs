@@ -1,5 +1,7 @@
 use pareg::FromArg;
 
+use crate::view::Mode;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, FromArg)]
 #[arg(exact, split = '=')]
 pub enum Cmd {
@@ -45,4 +47,6 @@ pub enum Cmd {
     SetLittleEndian,
     #[arg("cancel")]
     Cancel,
+    #[arg("mode")]
+    SetMode(Mode),
 }
