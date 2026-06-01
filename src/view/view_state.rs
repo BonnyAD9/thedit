@@ -128,8 +128,8 @@ impl ViewState {
                 self.scroll_to_view(cnt.unwrap_or(self.pos.line), false)
             }
             Cmd::StartCommand => self.controls.start_command(),
-            Cmd::MoveToTop => self.move_to_top(),
-            Cmd::MoveToBottom => self.move_to_bottom(),
+            Cmd::MoveToTop => self.move_to_top(cnt),
+            Cmd::MoveToBottom => self.move_to_bottom(cnt),
             Cmd::ShowSigned => {
                 let len = cnt.unwrap_or_else(|| self.sel_len().unwrap_or(4));
                 self.view_int(len, true)?;
@@ -387,7 +387,16 @@ impl ViewState {
         Ok(())
     }
 
-    fn move_to_top(&mut self) {
+    fn move_to(&mut self, pos: usize) {
+        self.pos.line = pos.saturating_sub(1).clamp(0, self.max_line);
+        self.scroll_to_view(self.pos.line, true);
+    }
+
+    fn move_to_top(&mut self, cnt: Option<usize>) {
+        if let Some(cnt) = cnt {
+            self.move_to(cnt);
+            return;
+        }
         let vis_lines = self.vis_lines();
         self.lines.start = 0;
         self.lines.end = vis_lines;
@@ -395,7 +404,11 @@ impl ViewState {
         self.redraw = true;
     }
 
-    fn move_to_bottom(&mut self) {
+    fn move_to_bottom(&mut self, cnt: Option<usize>) {
+        if let Some(cnt) = cnt {
+            self.move_to(cnt);
+            return;
+        }
         let vis_lines = self.vis_lines();
         if self.max_line <= vis_lines {
             return;
