@@ -43,4 +43,6 @@ pub enum Cmd {
     SetBigEndian,
     #[arg("set-little-endian")]
     SetLittleEndian,
+    #[arg("cancel")]
+    Cancel,
 }

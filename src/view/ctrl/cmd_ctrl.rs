@@ -92,6 +92,7 @@ impl CmdCtrl {
         res.add_cmd(p("S U"), Cmd::ShowUnsigned);
         res.add_cmd(p("S I"), Cmd::ShowSigned);
         res.add_cmd(p("S E"), Cmd::SwapEndianness);
+        res.add_cmd(p("esc"), Cmd::Cancel);
 
         res
     }

@@ -9,7 +9,7 @@ use std::{borrow::Cow, fmt::Display};
 
 use termal::{
     formatc,
-    raw::events::{Key, KeyCode},
+    raw::events::{Key, KeyCode, Modifiers},
 };
 
 pub use self::{cmd::*, cmd_ctrl::*, cmd_key::*, command_ctrl::*, keys::*};
@@ -47,6 +47,11 @@ impl Ctrl {
             match key.code {
                 KeyCode::Backspace => _ = self.typed.pop(),
                 KeyCode::Esc => self.cancel(),
+                KeyCode::Char('c')
+                    if key.modifiers.contains(Modifiers::CONTROL) =>
+                {
+                    self.cancel();
+                }
                 _ => {}
             }
 

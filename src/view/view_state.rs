@@ -122,6 +122,9 @@ impl ViewState {
             Cmd::SwapEndianness => self.big_endian = !self.big_endian,
             Cmd::SetBigEndian => self.big_endian = true,
             Cmd::SetLittleEndian => self.big_endian = false,
+            Cmd::Cancel => {
+                self.cancel();
+            }
         }
         Ok(())
     }
@@ -224,6 +227,10 @@ impl ViewState {
 
         self.controls.msg(res);
         Ok(())
+    }
+
+    fn cancel(&mut self) {
+        self.controls.cancel();
     }
 
     fn view_data(i: impl Iterator<Item = u8>) -> u128 {
