@@ -69,6 +69,7 @@ impl ViewState {
         self.actions += codes::ENABLE_ALTERNATIVE_BUFFER;
         self.actions += codes::ENABLE_MOUSE_XY_DRAG_TRACKING;
         self.actions += codes::ENABLE_MOUSE_XY_EXT;
+        self.actions += codes::HIDE_CURSOR;
         self.flush()?;
 
         const TIMEOUT: Duration = Duration::from_millis(50);
@@ -156,6 +157,26 @@ impl ViewState {
             Cmd::VisualUnsigned => {
                 self.signed_drag = false;
                 self.redraw = self.select.is_some();
+            }
+            Cmd::MovePageDown => {
+                self.move_down(self.vis_lines() as isize);
+            }
+            Cmd::MovePageUp => {
+                self.move_down(-(self.vis_lines() as isize));
+            }
+            Cmd::ScrollPageDown => {
+                self.scroll_down(self.vis_lines());
+            }
+            Cmd::ScrollPageUp => {
+                self.scroll_up(self.vis_lines());
+            }
+            Cmd::MoveToStart => {
+                self.pos.col = 0;
+                self.redraw = true;
+            }
+            Cmd::MoveToEnd => {
+                self.pos.col = 15;
+                self.redraw = true;
             }
         }
         Ok(())
@@ -356,6 +377,14 @@ impl ViewState {
         self.actions += codes::MOVE_HOME;
         print::header(&mut self.actions, true);
 
+        let visible = self.lines.len() as f32;
+        let total = self.max_line as f32;
+        let vr = visible / total;
+        let sr = (self.lines.start as f32 / (total - visible)).clamp(0., 1.);
+        let vc = (vr * visible).round().max(1.);
+        let sp = (sr * (visible - vc)) as usize;
+        let scrl = sp..sp + vc as usize;
+
         let (sel_start, sel_end) =
             self.selection().unwrap_or((Pos::MAX, Pos::MAX));
 
@@ -395,6 +424,10 @@ impl ViewState {
                 cur,
                 sel,
             );
+            if scrl.contains(&i) {
+                self.actions += codes::column!(9999);
+                self.actions.push('█');
+            }
         }
 
         self.actions += codes::move_to!(0, 9999);
@@ -411,6 +444,8 @@ impl ViewState {
 
         if cursor {
             self.actions += codes::CUR_SAVE;
+        } else {
+            self.actions += codes::HIDE_CURSOR;
         }
 
         if !cursor && let Some((s, e)) = self.selection() {
@@ -465,6 +500,7 @@ impl ViewState {
         self.actions += &end;
 
         if cursor {
+            self.actions += codes::SHOW_CURSOR;
             self.actions += codes::CUR_LOAD;
         }
 
@@ -504,6 +540,8 @@ impl ViewState {
     }
 
     fn flush(&mut self) -> Result<()> {
+        self.term.print("\x1b[?2026h");
+        self.actions += "\x1b[?2026l";
         self.term.flushed(&self.actions)?;
         self.actions.clear();
         Ok(())

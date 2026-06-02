@@ -55,4 +55,16 @@ pub enum Cmd {
     VisualSigned,
     #[arg("visual-unsigned")]
     VisualUnsigned,
+    #[arg("move-pg-up")]
+    MovePageUp,
+    #[arg("move-pg-down")]
+    MovePageDown,
+    #[arg("scroll-pg-up")]
+    ScrollPageUp,
+    #[arg("scroll-pg-down")]
+    ScrollPageDown,
+    #[arg("move-to-start")]
+    MoveToStart,
+    #[arg("move-to-end")]
+    MoveToEnd,
 }
