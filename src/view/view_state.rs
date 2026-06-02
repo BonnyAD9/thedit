@@ -65,7 +65,7 @@ impl ViewState {
         self.max_line = (self.file.length()?.saturating_sub(1)) / 16;
 
         self.actions += codes::ENABLE_ALTERNATIVE_BUFFER;
-        self.actions += codes::ENABLE_MOUSE_XY_PR_TRACKING;
+        self.actions += codes::ENABLE_MOUSE_XY_DRAG_TRACKING;
         self.actions += codes::ENABLE_MOUSE_XY_EXT;
         self.flush()?;
 
@@ -155,6 +155,18 @@ impl ViewState {
         match evt.event {
             mouse::Event::ScrollDown => self.scroll_down(1),
             mouse::Event::ScrollUp => self.scroll_up(1),
+            mouse::Event::Down if evt.button == mouse::Button::Left => {
+                self.set_mode(Mode::Normal);
+                self.pos = self.char_to_pos(evt.x, evt.y);
+                self.move_to(self.pos.line);
+            }
+            mouse::Event::Move if evt.button == mouse::Button::Left => {
+                if self.mode != Mode::Visual {
+                    self.set_mode(Mode::Visual);
+                }
+                self.pos = self.char_to_pos(evt.x, evt.y);
+                self.move_to(self.pos.line);
+            }
             _ => {}
         }
     }
@@ -291,6 +303,26 @@ impl ViewState {
         } else {
             Some((sel, self.pos))
         }
+    }
+
+    fn char_to_pos(&self, mut x: usize, mut y: usize) -> Pos {
+        x = x.saturating_sub(11);
+        y = y.saturating_sub(1);
+        if x > 48 {
+            x = x.saturating_sub(51);
+            if x >= 8 {
+                x -= 1;
+            }
+        } else {
+            if x >= 24 {
+                x -= 1;
+            }
+            x /= 3;
+        }
+
+        y += self.lines.start;
+
+        Pos::new(y, x.min(15))
     }
 
     fn redraw(&mut self) -> Result<()> {
