@@ -540,7 +540,7 @@ impl ViewState {
     }
 
     fn flush(&mut self) -> Result<()> {
-        self.term.print("\x1b[?2026h");
+        self.term.print("\x1b[?2026h")?;
         self.actions += "\x1b[?2026l";
         self.term.flushed(&self.actions)?;
         self.actions.clear();
