@@ -35,6 +35,7 @@ pub struct ViewState {
     exit: bool,
     redraw: bool,
     big_endian: bool,
+    signed_drag: bool,
     max_line: usize,
     pos: Pos,
     select: Option<Pos>,
@@ -53,6 +54,7 @@ impl ViewState {
             exit: false,
             redraw: true,
             big_endian: true,
+            signed_drag: false,
             max_line: 0,
             pos: Pos::new(0, 0),
             select: None,
@@ -147,20 +149,43 @@ impl ViewState {
             Cmd::SetMode(mode) => {
                 self.set_mode(mode);
             }
+            Cmd::VisualSigned => {
+                self.signed_drag = true;
+                self.redraw = self.select.is_some();
+            }
+            Cmd::VisualUnsigned => {
+                self.signed_drag = false;
+                self.redraw = self.select.is_some();
+            }
         }
         Ok(())
     }
 
     fn mouse_event(&mut self, evt: Mouse) {
-        match evt.event {
-            mouse::Event::ScrollDown => self.scroll_down(1),
-            mouse::Event::ScrollUp => self.scroll_up(1),
-            mouse::Event::Down if evt.button == mouse::Button::Left => {
+        match (evt.event, evt.button) {
+            (mouse::Event::ScrollDown, _) => self.scroll_down(1),
+            (mouse::Event::ScrollUp, _) => self.scroll_up(1),
+            (
+                mouse::Event::Down,
+                mouse::Button::Left | mouse::Button::Right,
+            ) => {
                 self.set_mode(Mode::Normal);
                 self.pos = self.char_to_pos(evt.x, evt.y);
                 self.move_to(self.pos.line);
+                self.signed_drag = evt.button == mouse::Button::Right;
             }
-            mouse::Event::Move if evt.button == mouse::Button::Left => {
+            (mouse::Event::Down, mouse::Button::Button4) => {
+                self.big_endian = false;
+                self.redraw = true;
+            }
+            (mouse::Event::Down, mouse::Button::Button5) => {
+                self.big_endian = true;
+                self.redraw = true;
+            }
+            (
+                mouse::Event::Move,
+                mouse::Button::Left | mouse::Button::Right,
+            ) => {
                 if self.mode != Mode::Visual {
                     self.set_mode(Mode::Visual);
                 }
@@ -281,6 +306,7 @@ impl ViewState {
                 self.select = None;
             }
         }
+        self.redraw = true;
     }
 
     fn view_data(i: impl Iterator<Item = u8>) -> u128 {
@@ -308,7 +334,7 @@ impl ViewState {
     fn char_to_pos(&self, mut x: usize, mut y: usize) -> Pos {
         x = x.saturating_sub(11);
         y = y.saturating_sub(1);
-        if x > 48 {
+        if x > 49 {
             x = x.saturating_sub(51);
             if x >= 8 {
                 x -= 1;
@@ -385,6 +411,32 @@ impl ViewState {
 
         if cursor {
             self.actions += codes::CUR_SAVE;
+        }
+
+        if !cursor && let Some((s, e)) = self.selection() {
+            let s = s.line * 16 + s.col;
+            let e = e.line * 16 + e.col;
+            if let Ok(r) = self.file.view(s..e + 1)
+                && r.len() <= 16
+            {
+                let n = if self.big_endian {
+                    Self::view_data(r.iter().copied())
+                } else {
+                    Self::view_data(r.iter().copied().rev())
+                };
+                if self.signed_drag {
+                    let sa = 8 * (16 - r.len());
+                    let mut n = (n as i128) << sa;
+                    n >>= sa;
+                    if n >= 0 {
+                        _ = writec!(self.actions, "{'gr}+{n}{'_}");
+                    } else {
+                        _ = writec!(self.actions, "{'gr}{n}{'_}");
+                    }
+                } else {
+                    _ = writec!(self.actions, "{'gr}{n}{'_}");
+                }
+            }
         }
 
         end.push('▐');

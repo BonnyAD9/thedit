@@ -51,4 +51,8 @@ pub enum Cmd {
     Cancel,
     #[arg("mode")]
     SetMode(Mode),
+    #[arg("visual-signed")]
+    VisualSigned,
+    #[arg("visual-unsigned")]
+    VisualUnsigned,
 }

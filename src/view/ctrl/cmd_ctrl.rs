@@ -99,6 +99,8 @@ impl CmdCtrl {
         res.add_cmd(p("g g"), Cmd::MoveToTop);
         res.add_cmd(p("S U"), Cmd::ShowUnsigned);
         res.add_cmd(p("S I"), Cmd::ShowSigned);
+        res.add_cmd(p("S u"), Cmd::VisualUnsigned);
+        res.add_cmd(p("S i"), Cmd::VisualSigned);
         res.add_cmd(p("S E"), Cmd::SwapEndianness);
         res.add_cmd(p("esc"), Cmd::Cancel);
         res.add_cmd(p("v"), Cmd::SetMode(Mode::Visual));
