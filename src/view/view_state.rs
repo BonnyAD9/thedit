@@ -500,7 +500,7 @@ impl ViewState {
             }
 
             if scrl.contains(&i) {
-                self.actions += codes::column!(9999);
+                self.actions += &codes::move_to!(9999, i + 2);
                 if i == scrl.start {
                     self.actions.push(bot_block(8 - frac));
                 } else if i == scrl.end - 1 && frac != 0 {
@@ -512,6 +512,7 @@ impl ViewState {
         }
 
         self.actions += codes::move_to!(0, 9999);
+        self.actions += codes::ERASE_TO_LN_END;
 
         let mut buf = String::new();
         let start = self.controls.display(&mut buf);
