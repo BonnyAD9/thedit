@@ -36,6 +36,7 @@ pub struct ViewState {
     redraw: bool,
     big_endian: bool,
     signed_drag: bool,
+    scroll_drag: Option<usize>,
     max_line: usize,
     pos: Pos,
     select: Option<Pos>,
@@ -55,6 +56,7 @@ impl ViewState {
             redraw: true,
             big_endian: true,
             signed_drag: false,
+            scroll_drag: None,
             max_line: 0,
             pos: Pos::new(0, 0),
             select: None,
@@ -186,6 +188,11 @@ impl ViewState {
         match (evt.event, evt.button) {
             (mouse::Event::ScrollDown, _) => self.scroll_down(1),
             (mouse::Event::ScrollUp, _) => self.scroll_up(1),
+            (mouse::Event::Down, mouse::Button::Left)
+                if evt.x == self.width =>
+            {
+                self.start_scrollbar_drag(evt.y);
+            }
             (
                 mouse::Event::Down,
                 mouse::Button::Left | mouse::Button::Right,
@@ -194,6 +201,11 @@ impl ViewState {
                 self.pos = self.char_to_pos(evt.x, evt.y);
                 self.move_to(self.pos.line);
                 self.signed_drag = evt.button == mouse::Button::Right;
+            }
+            (mouse::Event::Up, mouse::Button::Left)
+                if self.scroll_drag.is_some() =>
+            {
+                self.scroll_drag = None;
             }
             (mouse::Event::Down, mouse::Button::Button4) => {
                 self.big_endian = false;
@@ -207,6 +219,10 @@ impl ViewState {
                 mouse::Event::Move,
                 mouse::Button::Left | mouse::Button::Right,
             ) => {
+                if self.scroll_drag.is_some() {
+                    self.scrollbar_to(evt.y);
+                    return;
+                }
                 if self.mode != Mode::Visual {
                     self.set_mode(Mode::Visual);
                 }
@@ -372,6 +388,38 @@ impl ViewState {
         Pos::new(y, x.min(15))
     }
 
+    fn start_scrollbar_drag(&mut self, mut y: usize) {
+        let visible = self.lines.len() as f32;
+        let total = self.max_line as f32;
+        let vr = visible / total;
+        let sr = (self.lines.start as f32 / (total - visible)).clamp(0., 1.);
+        let vc = (vr * visible).round().max(1.);
+        let sp = (sr * (visible - vc)) as usize;
+        let vc = vc as usize;
+        y = y.saturating_sub(2);
+        if (sp..sp + vc).contains(&y) {
+            self.scroll_drag = Some(y - sp);
+        } else {
+            self.scroll_drag = Some(vc / 2);
+        }
+    }
+
+    fn scrollbar_to(&mut self, y: usize) {
+        let Some(sd) = self.scroll_drag else {
+            return;
+        };
+
+        let visible = self.lines.len() as f32;
+        let total = self.max_line as f32;
+        let chr = y as f32 - sd as f32 - 2.;
+        let pos = chr / (visible);
+        let line = (pos * total).clamp(0., total - visible).round();
+        self.lines.start = line as usize;
+        self.lines.end = (line + visible) as usize;
+        self.controls.msg(format!("{sd}"));
+        self.redraw = true;
+    }
+
     fn redraw(&mut self) -> Result<()> {
         self.actions += codes::CLEAR;
         self.actions += codes::MOVE_HOME;
@@ -382,8 +430,13 @@ impl ViewState {
         let vr = visible / total;
         let sr = (self.lines.start as f32 / (total - visible)).clamp(0., 1.);
         let vc = (vr * visible).round().max(1.);
-        let sp = (sr * (visible - vc)) as usize;
-        let scrl = sp..sp + vc as usize;
+        let mut sp = (sr * (visible - vc) * 8.) as usize;
+        let frac = sp % 8;
+        sp /= 8;
+        let mut scrl = sp..sp + vc as usize;
+        if frac != 0 {
+            scrl.end += 1;
+        }
 
         let (sel_start, sel_end) =
             self.selection().unwrap_or((Pos::MAX, Pos::MAX));
@@ -426,7 +479,13 @@ impl ViewState {
             );
             if scrl.contains(&i) {
                 self.actions += codes::column!(9999);
-                self.actions.push('█');
+                if i == scrl.start {
+                    self.actions.push(bot_block(8 - frac));
+                } else if i == scrl.end - 1 && frac != 0 {
+                    self.actions.push(up_block(frac));
+                } else {
+                    self.actions.push('█');
+                }
             }
         }
 
@@ -549,5 +608,33 @@ impl ViewState {
 
     fn vis_lines(&self) -> usize {
         self.height - 2
+    }
+}
+
+fn bot_block(f: usize) -> char {
+    match f {
+        0 => ' ',
+        1 => '▁',
+        2 => '▂',
+        3 => '▃',
+        4 => '▄',
+        5 => '▅',
+        6 => '▆',
+        7 => '▇',
+        _ => '█',
+    }
+}
+
+fn up_block(f: usize) -> char {
+    match f {
+        0 => ' ',
+        1 => '▔',
+        2 => '🮂',
+        3 => '🮃',
+        4 => '▀',
+        5 => '🮄',
+        6 => '🮅',
+        7 => '🮆',
+        _ => '█',
     }
 }
