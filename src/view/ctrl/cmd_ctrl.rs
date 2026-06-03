@@ -119,6 +119,10 @@ impl CmdCtrl {
         res.add_cmd(p("esc"), Cmd::Cancel);
         res.add_cmd(p("v"), Cmd::SetMode(Mode::Visual));
 
+        // Temporary workaround
+        res.add_cmd(p("m"), Cmd::None);
+        res.add_cmd(p("M"), Cmd::None);
+
         res
     }
 }

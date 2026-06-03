@@ -29,6 +29,7 @@ pub struct ViewState {
     lines: Range<usize>,
     controls: Ctrl,
     height: usize,
+    chr_height: usize,
     width: usize,
     actions: String,
     term: Terminal,
@@ -44,12 +45,18 @@ pub struct ViewState {
 }
 
 impl ViewState {
-    pub fn new(file: FileView, width: usize, height: usize) -> Self {
+    pub fn new(
+        file: FileView,
+        width: usize,
+        height: usize,
+        chr_height: usize,
+    ) -> Self {
         Self {
             file,
             lines: 0..height - 2,
             height,
             width,
+            chr_height,
             actions: String::new(),
             term: Terminal::stdio(),
             exit: false,
@@ -205,7 +212,10 @@ impl ViewState {
             (mouse::Event::Up, mouse::Button::Left)
                 if self.scroll_drag.is_some() =>
             {
-                self.scroll_drag = None;
+                if self.scroll_drag.is_some() {
+                    self.scroll_drag = None;
+                    self.actions += codes::ENABLE_MOUSE_XY_EXT;
+                }
             }
             (mouse::Event::Down, mouse::Button::Button4) => {
                 self.big_endian = false;
@@ -402,6 +412,7 @@ impl ViewState {
         } else {
             self.scroll_drag = Some(vc / 2);
         }
+        self.actions += codes::ENABLE_MOUSE_XY_PIX_EXT;
     }
 
     fn scrollbar_to(&mut self, y: usize) {
@@ -409,11 +420,12 @@ impl ViewState {
             return;
         };
 
+        let chr_height = self.chr_height as f32;
         let vis = self.lines.len();
         let visible = vis as f32;
         let total = self.max_line as f32 + visible;
-        let chr = y as f32 - sd as f32 - 2.;
-        let pos = chr / (visible);
+        let chr = y as f32 / chr_height - sd as f32 - 1.5;
+        let pos = chr / visible;
         let line = (pos * total).clamp(0., total).round();
         self.lines.start = (line as usize).min(self.max_line);
         self.lines.end = self.lines.start + vis;
