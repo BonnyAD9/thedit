@@ -409,14 +409,14 @@ impl ViewState {
             return;
         };
 
-        let visible = self.lines.len() as f32;
-        let total = self.max_line as f32;
+        let vis = self.lines.len();
+        let visible = vis as f32;
+        let total = self.max_line as f32 + visible;
         let chr = y as f32 - sd as f32 - 2.;
         let pos = chr / (visible);
-        let line = (pos * total).clamp(0., total - visible).round();
-        self.lines.start = line as usize;
-        self.lines.end = (line + visible) as usize;
-        self.controls.msg(format!("{sd}"));
+        let line = (pos * total).clamp(0., total).round();
+        self.lines.start = (line as usize).min(self.max_line);
+        self.lines.end = self.lines.start + vis;
         self.redraw = true;
     }
 
@@ -426,7 +426,7 @@ impl ViewState {
         print::header(&mut self.actions, true);
 
         let visible = self.lines.len() as f32;
-        let total = self.max_line as f32;
+        let total = self.max_line as f32 + visible;
         let vr = visible / total;
         let sr = (self.lines.start as f32 / (total - visible)).clamp(0., 1.);
         let vc = (vr * visible).round().max(1.);
@@ -445,7 +445,14 @@ impl ViewState {
             self.file.view(self.lines.start * 16..self.lines.end * 16)?;
         let (chunks, last) = data.as_chunks::<16>();
         let last = if last.is_empty() { None } else { Some(last) };
-        for (i, c) in chunks.iter().map(|a| &a[..]).chain(last).enumerate() {
+        for i in 0..self.lines.len() {
+            let c = if i < chunks.len() {
+                Some(chunks[i].as_slice())
+            } else if i == chunks.len() {
+                last
+            } else {
+                None
+            };
             let line = i + self.lines.start;
             let pos = line * 16;
             let cur = (line == self.pos.line).then_some(self.pos.col);
@@ -463,20 +470,23 @@ impl ViewState {
             };
 
             self.actions += &codes::move_to!(0, i + 2);
-            print::line_num(&mut self.actions, true, pos, 8);
-            self.actions += "  ";
-            print::hex_line(&mut self.actions, true, c, 8, 16, cur, sel);
-            self.actions += "  ";
-            print::ascii_line(
-                &mut self.actions,
-                true,
-                c,
-                8,
-                16,
-                false,
-                cur,
-                sel,
-            );
+            if let Some(c) = c {
+                print::line_num(&mut self.actions, true, pos, 8);
+                self.actions += "  ";
+                print::hex_line(&mut self.actions, true, c, 8, 16, cur, sel);
+                self.actions += "  ";
+                print::ascii_line(
+                    &mut self.actions,
+                    true,
+                    c,
+                    8,
+                    16,
+                    false,
+                    cur,
+                    sel,
+                );
+            }
+
             if scrl.contains(&i) {
                 self.actions += codes::column!(9999);
                 if i == scrl.start {
