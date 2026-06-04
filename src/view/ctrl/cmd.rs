@@ -71,6 +71,8 @@ pub enum Cmd {
     MoveToEnd,
     #[arg("show-help")]
     ShowHelp,
+    #[arg("enable-utf")]
+    EnableUtf(bool),
 }
 
 impl Display for Cmd {
@@ -108,6 +110,7 @@ impl Display for Cmd {
             Cmd::MoveToStart => "move-to-start",
             Cmd::MoveToEnd => "move-to-end",
             Cmd::ShowHelp => "show-help",
+            Cmd::EnableUtf(e) => return write!(f, "enable-utf={e}"),
         };
         f.write_str(s)
     }

@@ -38,6 +38,7 @@ pub struct ViewState {
     redraw: bool,
     big_endian: bool,
     signed_drag: bool,
+    utf: bool,
     scroll_drag: Option<usize>,
     max_line: usize,
     pos: Pos,
@@ -51,6 +52,7 @@ impl ViewState {
         width: usize,
         height: usize,
         chr_height: usize,
+        utf: bool,
     ) -> Self {
         Self {
             file,
@@ -64,6 +66,7 @@ impl ViewState {
             redraw: true,
             big_endian: true,
             signed_drag: false,
+            utf,
             scroll_drag: None,
             max_line: 0,
             pos: Pos::new(0, 0),
@@ -201,6 +204,9 @@ impl ViewState {
                 )?;
                 self.actions.clear();
                 self.redraw = true;
+            }
+            Cmd::EnableUtf(e) => {
+                self.utf = e;
             }
         }
         Ok(())
@@ -508,7 +514,7 @@ impl ViewState {
                     c,
                     8,
                     16,
-                    false,
+                    self.utf,
                     cur,
                     sel,
                 );

@@ -55,6 +55,6 @@ fn start() -> Result<()> {
     if args.dump() {
         dump(BufReader::new(File::open(f)?), args)
     } else {
-        view(FileView::new(File::open(f)?))
+        view(FileView::new(File::open(f)?), args.utf())
     }
 }

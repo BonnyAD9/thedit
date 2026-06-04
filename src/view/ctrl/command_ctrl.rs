@@ -58,6 +58,8 @@ impl CommandCtrl {
         res.add_cmd_cnt(":ulong", Cmd::ShowUnsigned, 8);
         res.add_cmd_cnt(":be", Cmd::SetBigEndian, 8);
         res.add_cmd_cnt(":le", Cmd::SetLittleEndian, 8);
+        res.add_cmd_cnt(":utf", Cmd::EnableUtf(true), 8);
+        res.add_cmd_cnt(":ascii", Cmd::EnableUtf(false), 8);
 
         res
     }

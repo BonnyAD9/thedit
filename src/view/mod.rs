@@ -16,11 +16,11 @@ mod view_state;
 
 pub use self::{help::*, mode::*, pos::*};
 
-pub fn view(file: FileView) -> Result<()> {
+pub fn view(file: FileView, utf: bool) -> Result<()> {
     let size = term_size()?;
     let chr_h = request::char_size(Duration::from_millis(100))?;
     let mut state =
-        ViewState::new(file, size.char_width, size.char_height, chr_h.y);
+        ViewState::new(file, size.char_width, size.char_height, chr_h.y, utf);
 
     termal::register_reset_on_panic();
     let res = raw_guard(true, || state.run());
