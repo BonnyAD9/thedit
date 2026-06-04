@@ -11,6 +11,13 @@ pub struct CommandCtrl {
 }
 
 impl CommandCtrl {
+    pub fn all_commands(&self) -> Vec<(&str, (Cmd, Option<usize>))> {
+        self.cmds
+            .iter()
+            .map(|(n, (cm, cn))| (n.as_str(), (*cm, *cn)))
+            .collect()
+    }
+
     pub fn execute(&self, cmd: &str) -> Result<(Cmd, Option<usize>)> {
         if let Some(res) = self.cmds.get(cmd) {
             Ok(*res)
@@ -39,6 +46,8 @@ impl CommandCtrl {
         res.add_cmd(":q", Cmd::Exit);
         res.add_cmd(":exit", Cmd::Exit);
         res.add_cmd(":quit", Cmd::Exit);
+        res.add_cmd(":help", Cmd::ShowHelp);
+        res.add_cmd(":h", Cmd::ShowHelp);
         res.add_cmd_cnt(":byte", Cmd::ShowUnsigned, 1);
         res.add_cmd_cnt(":sbyte", Cmd::ShowSigned, 1);
         res.add_cmd_cnt(":short", Cmd::ShowSigned, 2);

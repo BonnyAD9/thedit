@@ -21,6 +21,7 @@ use crate::{
     view::{
         Mode, Pos,
         ctrl::{Cmd, Ctrl},
+        help, pager,
     },
 };
 
@@ -185,6 +186,20 @@ impl ViewState {
             }
             Cmd::MoveToEnd => {
                 self.pos.col = 15;
+                self.redraw = true;
+            }
+            Cmd::ShowHelp => {
+                self.actions.clear();
+                let keybinds = self.controls.keybinds().get_all();
+                let commands = self.controls.commands().all_commands();
+                pager::show(
+                    help(keybinds, commands),
+                    &mut self.term,
+                    &mut self.actions,
+                    self.width,
+                    self.height,
+                )?;
+                self.actions.clear();
                 self.redraw = true;
             }
         }

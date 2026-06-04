@@ -8,11 +8,13 @@ use termal::{
 use crate::{err::Result, file_view::FileView, view::view_state::ViewState};
 
 mod ctrl;
+mod help;
 mod mode;
+mod pager;
 mod pos;
 mod view_state;
 
-pub use self::{mode::*, pos::*};
+pub use self::{help::*, mode::*, pos::*};
 
 pub fn view(file: FileView) -> Result<()> {
     let size = term_size()?;

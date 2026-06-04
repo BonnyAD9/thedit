@@ -70,6 +70,31 @@ impl CmdCtrl {
         Some((Some(cmd), num))
     }
 
+    pub fn get_all(&self) -> Vec<(Keys, Cmd)> {
+        let mut res = vec![];
+        // (depth, idx)
+        let mut stack = vec![(0, None, 0)];
+        let mut keys = vec![];
+
+        while let Some((depth, key, node)) = stack.pop() {
+            keys.resize_with(depth, || unreachable!());
+            if let Some(k) = key {
+                keys.push(k);
+            }
+
+            let node = &self.nodes[node];
+            if let Some(cmd) = node.cmd {
+                res.push((Keys(keys.clone()), cmd));
+            }
+
+            for (k, n) in &node.next {
+                stack.push((keys.len(), Some(*k), *n));
+            }
+        }
+
+        res
+    }
+
     pub fn cancel(&mut self) {
         self.num = None;
         self.cur = 0;

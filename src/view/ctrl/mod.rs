@@ -23,6 +23,14 @@ pub struct Ctrl {
 }
 
 impl Ctrl {
+    pub fn keybinds(&self) -> &CmdCtrl {
+        &self.cmd
+    }
+
+    pub fn commands(&self) -> &CommandCtrl {
+        &self.command
+    }
+
     pub fn key_press(&mut self, key: Key) -> Option<(Cmd, Option<usize>)> {
         if self.typed.starts_with(':') {
             if key.code == KeyCode::Enter {
@@ -116,6 +124,7 @@ impl Ctrl {
         Self {
             cmd: CmdCtrl::default_controls(),
             command: CommandCtrl::default_controls(),
+            message: formatc!("{'gr}Type `:help` to show help.{'_}"),
             ..Self::default()
         }
     }

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use pareg::FromArg;
 
 use crate::view::Mode;
@@ -67,4 +69,46 @@ pub enum Cmd {
     MoveToStart,
     #[arg("move-to-end")]
     MoveToEnd,
+    #[arg("show-help")]
+    ShowHelp,
+}
+
+impl Display for Cmd {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Cmd::None => "none",
+            Cmd::Exit => "exit",
+            Cmd::ScrollDown => "scroll-down",
+            Cmd::ScrollUp => "scroll-up",
+            Cmd::ScrollDownHalf => "scroll-down-half",
+            Cmd::ScrollUpHalf => "scroll-up-half",
+            Cmd::MoveRight => "move-right",
+            Cmd::MoveDown => "move-down",
+            Cmd::MoveLeft => "move-left",
+            Cmd::MoveUp => "move-up",
+            Cmd::MoveRightWrap => "move-right-wrap",
+            Cmd::MoveLeftWrap => "move-left-wrap",
+            Cmd::ScrollToView => "scroll-to-view",
+            Cmd::StartCommand => "start-command",
+            Cmd::MoveToTop => "move-to-top",
+            Cmd::MoveToBottom => "move-to-bottom",
+            Cmd::ShowSigned => "show-signed",
+            Cmd::ShowUnsigned => "show-unsigned",
+            Cmd::SwapEndianness => "swap-endianness",
+            Cmd::SetBigEndian => "set-big-endian",
+            Cmd::SetLittleEndian => "set-little-endian",
+            Cmd::Cancel => "cancel",
+            Cmd::SetMode(mode) => return write!(f, "set-mode={mode}"),
+            Cmd::VisualSigned => "visual-signed",
+            Cmd::VisualUnsigned => "visual-unsigned",
+            Cmd::MovePageUp => "move-page-up",
+            Cmd::MovePageDown => "move-page-down",
+            Cmd::ScrollPageUp => "scroll-page-up",
+            Cmd::ScrollPageDown => "scroll-page-down",
+            Cmd::MoveToStart => "move-to-start",
+            Cmd::MoveToEnd => "move-to-end",
+            Cmd::ShowHelp => "show-help",
+        };
+        f.write_str(s)
+    }
 }
