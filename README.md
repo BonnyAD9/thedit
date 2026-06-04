@@ -11,22 +11,23 @@ also has great mouse support (scrolling, selection, dragging the scrollbar, ...)
 The keybinds will be fully customizable in the future.
 
 When in visual mode, thedit will show decimal value of the selection in the bottom left
-corner. The default endianness is Big Endian, but you can easily switch it to Little
-Endian by typing `:le` or `S E` (**S**witch **E**ndianness) or by pressing the mouse
-back button (you can see `LE` to the right of `VISUAL` in the bottom right, this means that
-it has already been switched to Little Endian). By default the value is interpreted as
-unsigned integer, you can change that by typing `S i` to go to signed mode or `S u` to go
-to unsigned mode. When selecting with mouse, the signedness is determined by the button
-you youse. Left button uses unsigned value and right uses signed value. To show the value
-without entering visual mode, you can type `S U` to show unsigned value or `S I` to show
-signed value. This will by default interpret the next 4 bytes. If you want different
-amount, prefix the command with that amount. You can also use the commands `:uint`, `:int`,
-`:long`,... to do the same thing.
+corner. The default endianness is Big Endian, but you can easily switch it to **Little
+Endian** by typing `:le` or `S E` (**S**witch **E**ndianness) or by pressing the **mouse
+back** button (you can see `LE` to the right of `VISUAL` in the bottom right, this means that
+it has already been switched to Little Endian). To switch to **Big Endian** type `:be` (or
+`S E`) or use the **mouse forward** button. By default the value is interpreted as unsigned
+integer, you can change that by typing `S i` to go to **signed** mode or `S u` to go to
+**unsigned** mode. When selecting with mouse, the signedness is determined by the button
+you youse. **Left button** uses **unsigned** value and **right button** uses **signed**
+value. To show the value without entering visual mode, you can type `S U` to show unsigned
+value or `S I` to show signed value. This will by default interpret the next 4 bytes.
+If you want different amount, prefix the command with that amount. You can also use the
+commands `:uint`, `:int`, `:long`,... to do the same thing.
 
 The numbers on the bottom right show the cursor position (`1,8` - line 1 character 8) and
 the number of selected characters (`4`).
 
-To exit type `:q` or press the red cross in the top right.
+To **exit** type `:q` or press the **red cross in the top right**.
 
 To see the full controls type `:help`.
 
