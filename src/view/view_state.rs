@@ -370,6 +370,7 @@ impl ViewState {
 
     fn set_mode(&mut self, mode: Mode) {
         self.mode = mode;
+        self.controls.msg("");
         match mode {
             Mode::Visual => {
                 self.select = Some(self.pos);
