@@ -6,6 +6,8 @@
     <img src="https://github.com/user-attachments/assets/9b925fcc-fb0f-470d-8cb0-e110e4e47d85" />
 </p>
 
+## Controls
+
 Thedit supports subset familiar vim controls (`hjkl` movement, visual mode, ...) and
 also has great mouse support (scrolling, selection, dragging the scrollbar, ...).
 The keybinds will be fully customizable in the future.
@@ -31,6 +33,8 @@ To **exit** type `:q` or press the **red cross in the top right**.
 
 To see the full controls type `:help`.
 
+## Formatting
+
 **Colors** and the yellow header are automatically enabled when printing to
 terminal. The meaning is:
 - **WHITE**: Graphic ascii characters.
@@ -52,6 +56,8 @@ thedit to do hexdump instead of opening the interactive editor. Thedit will also
 automatically do hexdump if it detects that its stdout is not terminal.
 
 For more features see `--help`.
+
+## Features
 
 Thedit now only works as interactive hex viewer or hexdump. I would like to make
 this into full interactive terminal hex editor in the future.
