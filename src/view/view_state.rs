@@ -219,7 +219,11 @@ impl ViewState {
             (mouse::Event::Down, mouse::Button::Left)
                 if evt.x == self.width =>
             {
-                self.start_scrollbar_drag(evt.y);
+                if evt.y == 1 {
+                    self.exit = true;
+                } else {
+                    self.start_scrollbar_drag(evt.y);
+                }
             }
             (
                 mouse::Event::Down,
@@ -457,6 +461,9 @@ impl ViewState {
         self.actions += codes::CLEAR;
         self.actions += codes::MOVE_HOME;
         print::header(&mut self.actions, true);
+
+        self.actions += codes::move_to!(9999, 0);
+        _ = writec!(self.actions, "{'r inverse bold}×{'_}");
 
         let visible = self.lines.len() as f32;
         let total = self.max_line as f32 + visible;
