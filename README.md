@@ -47,7 +47,7 @@ Apart from colors, you can also enable utf graphic representation of ascii
 control characters with the flag `--utf`:
 
 <p align="center">
-    <img src="https://github.com/user-attachments/assets/ff617f2b-dca3-4c7a-a3f5-cfa648519983" />
+    <img src="https://github.com/user-attachments/assets/bd566411-c642-4000-b028-04267bfca022" />
 </p>
 
 The flag `--head` makes sure that only the first lines of the file that fit on the screen
