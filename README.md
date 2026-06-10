@@ -1,4 +1,5 @@
 # thedit
+[![version][aur-badge]][aur]
 
 **Terminal Hex EDITor** and hexdump with familiar controls for both vim and non-vim users.
 
@@ -61,3 +62,16 @@ For more features see `--help`.
 
 Thedit now only works as interactive hex viewer or hexdump. I would like to make
 this into full interactive terminal hex editor in the future.
+
+## Links
+- **Author:** [BonnyAD9][author]
+- **GitHub repository:** [BonnyAD9/uamp][github]
+- **My website:** [bonnyad9.github.io][my-web]
+- **Aur package:** [aur.archlinux.org][aur]
+
+
+[author]: https://github.com/BonnyAD9
+[github]: https://github.com/BonnyAD9/thedit
+[my-web]: https://bonnyad9.github.io/
+[aur]: https://aur.archlinux.org/packages/thedit
+[aur-badge]: https://img.shields.io/aur/version/thedit
