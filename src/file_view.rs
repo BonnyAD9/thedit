@@ -38,7 +38,7 @@ impl FileView {
 
         self.range = start..start + red;
 
-        Ok(&self.data[range.start - self.range.start
+        Ok(&self.data[red.min(range.start - self.range.start)
             ..red.min(range.end - self.range.start)])
     }
 
