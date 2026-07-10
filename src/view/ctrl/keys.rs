@@ -2,7 +2,7 @@ use std::fmt::{Display, Write};
 
 use pareg::{ArgInto, FromArg};
 
-use crate::view::ctrl::cmd_key::CmdKey;
+use crate::view::ctrl::{cmd_key::CmdKey, items::Items};
 
 #[derive(Debug, Clone, Default)]
 pub struct Keys(pub Vec<CmdKey>);
@@ -20,7 +20,7 @@ impl IntoIterator for Keys {
 impl<'a> FromArg<'a> for Keys {
     fn from_arg(arg: &'a str) -> pareg::Result<Self> {
         let mut res = vec![];
-        for a in arg.trim().split_ascii_whitespace() {
+        for a in Items::new(arg) {
             res.push(a.arg_into()?);
         }
         Ok(Self(res))

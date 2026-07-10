@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## future
+### Changes
+- Show the key codes properly.
+- Optimize reading selectoin for parsing.
+- Optimize drawing by allowing drawing the status bar independently.
+
 ## v0.1.0
 ### Features
 - Hex view

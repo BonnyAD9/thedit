@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use pareg::FromArg;
 
-use crate::view::Mode;
+use crate::view::ctrl::Mode;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, FromArg)]
 #[arg(exact, split = '=')]

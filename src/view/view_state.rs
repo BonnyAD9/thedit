@@ -19,9 +19,10 @@ use crate::{
     file_view::FileView,
     print,
     view::{
-        Mode, Pos,
-        ctrl::{Cmd, Ctrl},
+        Pos,
+        ctrl::{Cmd, Ctrl, Mode},
         help, pager,
+        view_state_flags::ViewStateFlags,
     },
 };
 
@@ -34,11 +35,7 @@ pub struct ViewState {
     width: usize,
     actions: String,
     term: Terminal,
-    exit: bool,
-    redraw: bool,
-    big_endian: bool,
-    signed_drag: bool,
-    utf: bool,
+    flags: ViewStateFlags,
     scroll_drag: Option<usize>,
     max_line: usize,
     pos: Pos,
@@ -62,11 +59,9 @@ impl ViewState {
             chr_height,
             actions: String::new(),
             term: Terminal::stdio(),
-            exit: false,
-            redraw: true,
-            big_endian: true,
-            signed_drag: false,
-            utf,
+            flags: ViewStateFlags::REDRAW_ALL
+                | ViewStateFlags::BIG_ENDIAN
+                | ViewStateFlags::UTF.when(utf),
             scroll_drag: None,
             max_line: 0,
             pos: Pos::new(0, 0),
@@ -86,13 +81,13 @@ impl ViewState {
         self.flush()?;
 
         const TIMEOUT: Duration = Duration::from_millis(50);
-        while !self.exit {
-            if self.redraw {
+        while !self.flags.contains(ViewStateFlags::EXIT) {
+            if self.flags.intersects(ViewStateFlags::REDRAW_ALL) {
                 self.actions.clear();
                 self.redraw()?;
             }
             self.flush()?;
-            self.redraw = false;
+            self.flags.remove(ViewStateFlags::REDRAW_ALL);
 
             let Some(evt) = self.term.read_timeout(TIMEOUT)? else {
                 let siz = term_size()?;
@@ -102,7 +97,7 @@ impl ViewState {
                     self.height = height;
                     self.width = width;
                     self.lines.end = self.lines.start + self.height - 2;
-                    self.redraw = true;
+                    self.flags.insert(ViewStateFlags::REDRAW_ALL);
                 }
                 continue;
             };
@@ -118,8 +113,8 @@ impl ViewState {
     }
 
     fn key_event(&mut self, key: Key) -> Result<()> {
-        self.redraw = true;
-        let Some((cmd, amt)) = self.controls.key_press(key) else {
+        self.flags.insert(ViewStateFlags::REDRAW_STATUS);
+        let Some((cmd, amt)) = self.controls.key_press(self.mode, key) else {
             return Ok(());
         };
         self.do_cmd(cmd, amt)
@@ -129,7 +124,7 @@ impl ViewState {
         let c1 = cnt.unwrap_or(1);
         match cmd {
             Cmd::None => {}
-            Cmd::Exit => self.exit = true,
+            Cmd::Exit => self.flags.insert(ViewStateFlags::EXIT),
             Cmd::ScrollDown => self.scroll_down(c1),
             Cmd::ScrollUp => self.scroll_up(c1),
             Cmd::ScrollDownHalf => self.scroll_down(self.vis_lines() / 2 * c1),
@@ -154,9 +149,11 @@ impl ViewState {
                 let len = cnt.unwrap_or_else(|| self.sel_len().unwrap_or(4));
                 self.view_int(len, false)?;
             }
-            Cmd::SwapEndianness => self.big_endian = !self.big_endian,
-            Cmd::SetBigEndian => self.big_endian = true,
-            Cmd::SetLittleEndian => self.big_endian = false,
+            Cmd::SwapEndianness => self.flags ^= ViewStateFlags::BIG_ENDIAN,
+            Cmd::SetBigEndian => self.flags.insert(ViewStateFlags::BIG_ENDIAN),
+            Cmd::SetLittleEndian => {
+                self.flags.remove(ViewStateFlags::BIG_ENDIAN)
+            }
             Cmd::Cancel => {
                 self.cancel();
             }
@@ -164,12 +161,14 @@ impl ViewState {
                 self.set_mode(mode);
             }
             Cmd::VisualSigned => {
-                self.signed_drag = true;
-                self.redraw = self.select.is_some();
+                self.flags.insert(ViewStateFlags::SIGNED_DRAG);
+                self.flags |=
+                    ViewStateFlags::REDRAW_STATUS.when(self.select.is_some());
             }
             Cmd::VisualUnsigned => {
-                self.signed_drag = false;
-                self.redraw = self.select.is_some();
+                self.flags.remove(ViewStateFlags::SIGNED_DRAG);
+                self.flags |=
+                    ViewStateFlags::REDRAW_STATUS.when(self.select.is_some());
             }
             Cmd::MovePageDown => {
                 self.move_down(self.vis_lines() as isize);
@@ -185,11 +184,13 @@ impl ViewState {
             }
             Cmd::MoveToStart => {
                 self.pos.col = 0;
-                self.redraw = true;
+                self.flags.insert(ViewStateFlags::REDRAW_ALL);
             }
             Cmd::MoveToEnd => {
-                self.pos.col = 15;
-                self.redraw = true;
+                if self.pos.col != 15 {
+                    self.pos.col = 15;
+                    self.flags.insert(ViewStateFlags::REDRAW_ALL);
+                }
             }
             Cmd::ShowHelp => {
                 self.actions.clear();
@@ -203,10 +204,10 @@ impl ViewState {
                     self.height,
                 )?;
                 self.actions.clear();
-                self.redraw = true;
+                self.flags.insert(ViewStateFlags::REDRAW_ALL);
             }
             Cmd::EnableUtf(e) => {
-                self.utf = e;
+                self.flags.set(ViewStateFlags::UTF, e);
             }
         }
         Ok(())
@@ -220,7 +221,7 @@ impl ViewState {
                 if evt.x == self.width =>
             {
                 if evt.y == 1 {
-                    self.exit = true;
+                    self.flags.insert(ViewStateFlags::EXIT);
                 } else {
                     self.start_scrollbar_drag(evt.y);
                 }
@@ -232,7 +233,10 @@ impl ViewState {
                 self.set_mode(Mode::Normal);
                 self.pos = self.char_to_pos(evt.x, evt.y);
                 self.move_to(self.pos.line);
-                self.signed_drag = evt.button == mouse::Button::Right;
+                self.flags.set(
+                    ViewStateFlags::SIGNED_DRAG,
+                    evt.button == mouse::Button::Right,
+                );
             }
             (mouse::Event::Up, mouse::Button::Left)
                 if self.scroll_drag.is_some() =>
@@ -243,12 +247,12 @@ impl ViewState {
                 }
             }
             (mouse::Event::Down, mouse::Button::Button4) => {
-                self.big_endian = false;
-                self.redraw = true;
+                self.flags.remove(ViewStateFlags::BIG_ENDIAN);
+                self.flags.insert(ViewStateFlags::REDRAW_STATUS);
             }
             (mouse::Event::Down, mouse::Button::Button5) => {
-                self.big_endian = true;
-                self.redraw = true;
+                self.flags.insert(ViewStateFlags::BIG_ENDIAN);
+                self.flags.insert(ViewStateFlags::REDRAW_STATUS);
             }
             (
                 mouse::Event::Move,
@@ -271,18 +275,18 @@ impl ViewState {
     fn scroll_down(&mut self, cnt: usize) {
         self.lines.start = self.max_line.min(self.lines.start + cnt);
         self.lines.end = self.lines.start + self.height - 2;
-        self.redraw = true;
+        self.flags.insert(ViewStateFlags::REDRAW_ALL);
     }
 
     fn scroll_up(&mut self, cnt: usize) {
         self.lines.start = self.lines.start.saturating_sub(cnt);
         self.lines.end = self.lines.start + self.height - 2;
-        self.redraw = true;
+        self.flags.insert(ViewStateFlags::REDRAW_ALL);
     }
 
     fn move_right(&mut self, cnt: isize) {
         self.pos.col = self.pos.col.saturating_add_signed(cnt).min(15);
-        self.redraw = true;
+        self.flags.insert(ViewStateFlags::REDRAW_ALL);
     }
 
     fn move_right_wrap(&mut self, cnt: isize) {
@@ -313,13 +317,13 @@ impl ViewState {
         if line < self.lines.start {
             self.lines.start = line;
             self.lines.end = self.lines.start + self.height - 2;
-            self.redraw = true;
+            self.flags.insert(ViewStateFlags::REDRAW_ALL);
         } else if line >= self.lines.end {
             self.lines.end = line + 1;
             self.lines.start = self.lines.end + 2 - self.height;
-            self.redraw = true;
+            self.flags.insert(ViewStateFlags::REDRAW_ALL);
         } else if redraw {
-            self.redraw = true;
+            self.flags.insert(ViewStateFlags::REDRAW_ALL);
         }
     }
 
@@ -338,7 +342,7 @@ impl ViewState {
         let mut bg = codes::BLUE_DARK_BG;
         let mut suf = formatc!("{'b}LE");
         let data = self.file.view(start..end)?;
-        let res = if self.big_endian {
+        let res = if self.flags.contains(ViewStateFlags::BIG_ENDIAN) {
             bg = codes::GREEN_DARK_BG;
             suf = formatc!("{'g}BE");
             Self::view_data(data.iter().copied())
@@ -379,7 +383,7 @@ impl ViewState {
                 self.select = None;
             }
         }
-        self.redraw = true;
+        self.flags.insert(ViewStateFlags::REDRAW_ALL);
     }
 
     fn view_data(i: impl Iterator<Item = u8>) -> u128 {
@@ -455,10 +459,10 @@ impl ViewState {
         let line = (pos * total).clamp(0., total).round();
         self.lines.start = (line as usize).min(self.max_line);
         self.lines.end = self.lines.start + vis;
-        self.redraw = true;
+        self.flags.insert(ViewStateFlags::REDRAW_ALL);
     }
 
-    fn redraw(&mut self) -> Result<()> {
+    fn redraw_buffer(&mut self) -> Result<()> {
         self.actions += codes::CLEAR;
         self.actions += codes::MOVE_HOME;
         print::header(&mut self.actions, true);
@@ -522,7 +526,7 @@ impl ViewState {
                     c,
                     8,
                     16,
-                    self.utf,
+                    self.flags.contains(ViewStateFlags::UTF),
                     cur,
                     sel,
                 );
@@ -540,18 +544,21 @@ impl ViewState {
             }
         }
 
+        Ok(())
+    }
+
+    fn redraw(&mut self) -> Result<()> {
+        if self.flags.contains(ViewStateFlags::REDRAW_BUFFER) {
+            self.redraw_buffer()?;
+        }
+
         self.actions += codes::move_to!(0, 9999);
         self.actions += codes::ERASE_TO_LN_END;
 
-        let mut buf = String::new();
-        let start = self.controls.display(&mut buf);
-        let cursor = !buf.is_empty() && start;
-        let mut end = if start {
-            self.actions += &buf;
-            String::new()
-        } else {
-            buf + " "
-        };
+        let left = self.controls.get_left();
+        self.actions += left;
+        let mut end = self.controls.get_right();
+        let cursor = left.is_empty() && left.starts_with(':');
 
         if cursor {
             self.actions += codes::CUR_SAVE;
@@ -562,15 +569,15 @@ impl ViewState {
         if !cursor && let Some((s, e)) = self.selection() {
             let s = s.line * 16 + s.col;
             let e = e.line * 16 + e.col;
-            if let Ok(r) = self.file.view(s..e + 1)
-                && r.len() <= 16
+            if e - s < 16
+                && let Ok(r) = self.file.view(s..e + 1)
             {
-                let n = if self.big_endian {
+                let n = if self.flags.contains(ViewStateFlags::BIG_ENDIAN) {
                     Self::view_data(r.iter().copied())
                 } else {
                     Self::view_data(r.iter().copied().rev())
                 };
-                if self.signed_drag {
+                if self.flags.contains(ViewStateFlags::SIGNED_DRAG) {
                     let sa = 8 * (16 - r.len());
                     let mut n = (n as i128) << sa;
                     n >>= sa;
@@ -593,7 +600,7 @@ impl ViewState {
         };
         end += codes::RESET_INVERSE;
         end.push('▌');
-        if self.big_endian {
+        if self.flags.contains(ViewStateFlags::BIG_ENDIAN) {
             _ = writec!(end, "{'g}BE{'_}");
         } else {
             _ = writec!(end, "{'b}LE{'_}");
@@ -632,7 +639,7 @@ impl ViewState {
         self.lines.start = 0;
         self.lines.end = vis_lines;
         self.pos.line = 0;
-        self.redraw = true;
+        self.flags.insert(ViewStateFlags::REDRAW_ALL);
     }
 
     fn move_to_bottom(&mut self, cnt: Option<usize>) {
@@ -647,7 +654,7 @@ impl ViewState {
         self.lines.end = self.max_line + 1;
         self.lines.start = self.lines.end - vis_lines;
         self.pos.line = self.max_line;
-        self.redraw = true;
+        self.flags.insert(ViewStateFlags::REDRAW_ALL);
     }
 
     fn flush(&mut self) -> Result<()> {

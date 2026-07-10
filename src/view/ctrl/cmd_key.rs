@@ -17,54 +17,79 @@ struct ParseModifier(Modifiers);
 
 impl Display for CmdKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.modifiers == Modifiers::SHIFT
+            && let KeyCode::Char(c) = self.code
+            && c.is_ascii_alphabetic()
+        {
+            return write!(f, "{}", c.to_ascii_uppercase());
+        }
+
+        let mut angl = false;
         for m in self.modifiers {
+            if !angl {
+                angl = true;
+                write!(f, "<")?;
+            }
             match m {
-                Modifiers::SHIFT => write!(f, "shift-")?,
-                Modifiers::ALT => write!(f, "alt-")?,
-                Modifiers::CONTROL => write!(f, "ctrl-")?,
-                Modifiers::META => write!(f, "meta-")?,
+                Modifiers::SHIFT => write!(f, "S-")?,
+                Modifiers::ALT => write!(f, "A-")?,
+                Modifiers::CONTROL => write!(f, "C-")?,
+                Modifiers::META => write!(f, "M-")?,
                 _ => return Err(std::fmt::Error),
             }
         }
 
-        match self.code {
-            KeyCode::Up => write!(f, "up"),
-            KeyCode::Down => write!(f, "down"),
-            KeyCode::Right => write!(f, "right"),
-            KeyCode::Left => write!(f, "left"),
-            KeyCode::Space => write!(f, "space"),
-            KeyCode::Tab => write!(f, "tab"),
-            KeyCode::Enter => write!(f, "enter"),
-            KeyCode::F0 => write!(f, "f0"),
-            KeyCode::F1 => write!(f, "f1"),
-            KeyCode::F2 => write!(f, "f2"),
-            KeyCode::F3 => write!(f, "f3"),
-            KeyCode::F4 => write!(f, "f4"),
-            KeyCode::F5 => write!(f, "f5"),
-            KeyCode::F6 => write!(f, "f6"),
-            KeyCode::F7 => write!(f, "f7"),
-            KeyCode::F8 => write!(f, "f8"),
-            KeyCode::F9 => write!(f, "f9"),
-            KeyCode::F10 => write!(f, "f10"),
-            KeyCode::F11 => write!(f, "f11"),
-            KeyCode::F12 => write!(f, "f12"),
-            KeyCode::F13 => write!(f, "f13"),
-            KeyCode::F14 => write!(f, "f14"),
-            KeyCode::F15 => write!(f, "f15"),
-            KeyCode::F16 => write!(f, "f16"),
-            KeyCode::F17 => write!(f, "f17"),
-            KeyCode::F18 => write!(f, "f18"),
-            KeyCode::F19 => write!(f, "f19"),
-            KeyCode::F20 => write!(f, "f20"),
-            KeyCode::Delete => write!(f, "delete"),
-            KeyCode::Insert => write!(f, "insert"),
-            KeyCode::End => write!(f, "end"),
-            KeyCode::Home => write!(f, "home"),
-            KeyCode::PgUp => write!(f, "pg_up"),
-            KeyCode::PgDown => write!(f, "pg_down"),
-            KeyCode::Backspace => write!(f, "backspace"),
-            KeyCode::Esc => write!(f, "esc"),
-            KeyCode::Char(c) => write!(f, "{c}"),
+        let key = match self.code {
+            KeyCode::Up => "up",
+            KeyCode::Down => "down",
+            KeyCode::Right => "right",
+            KeyCode::Left => "left",
+            KeyCode::Space => "space",
+            KeyCode::Tab => "tab",
+            KeyCode::Enter => "enter",
+            KeyCode::Char('-') => "dash",
+            KeyCode::F0 => "f0",
+            KeyCode::F1 => "f1",
+            KeyCode::F2 => "f2",
+            KeyCode::F3 => "f3",
+            KeyCode::F4 => "f4",
+            KeyCode::F5 => "f5",
+            KeyCode::F6 => "f6",
+            KeyCode::F7 => "f7",
+            KeyCode::F8 => "f8",
+            KeyCode::F9 => "f9",
+            KeyCode::F10 => "f10",
+            KeyCode::F11 => "f11",
+            KeyCode::F12 => "f12",
+            KeyCode::F13 => "f13",
+            KeyCode::F14 => "f14",
+            KeyCode::F15 => "f15",
+            KeyCode::F16 => "f16",
+            KeyCode::F17 => "f17",
+            KeyCode::F18 => "f18",
+            KeyCode::F19 => "f19",
+            KeyCode::F20 => "f20",
+            KeyCode::Delete => "delete",
+            KeyCode::Insert => "insert",
+            KeyCode::End => "end",
+            KeyCode::Home => "home",
+            KeyCode::PgUp => "pg_up",
+            KeyCode::PgDown => "pg_down",
+            KeyCode::Backspace => "backspace",
+            KeyCode::Esc => "esc",
+            KeyCode::Char(c) => {
+                return if angl {
+                    write!(f, "{c}>")
+                } else {
+                    write!(f, "{c}")
+                };
+            }
+        };
+
+        if angl {
+            write!(f, "{key}>")
+        } else {
+            write!(f, "<{key}>")
         }
     }
 }
@@ -122,6 +147,7 @@ impl<'a> FromArg<'a> for ParseKeyCode {
             "space" => KeyCode::Space,
             "tab" => KeyCode::Tab,
             "enter" => KeyCode::Enter,
+            "dash" => KeyCode::Char('-'),
             "f0" => KeyCode::F0,
             "f1" => KeyCode::F1,
             "f2" => KeyCode::F2,
@@ -161,10 +187,10 @@ impl<'a> FromArg<'a> for ParseKeyCode {
 impl<'a> FromArg<'a> for ParseModifier {
     fn from_arg(arg: &'a str) -> pareg::Result<Self> {
         let modf = match arg {
-            "shift" => Modifiers::SHIFT,
-            "alt" => Modifiers::ALT,
-            "ctrl" | "control" => Modifiers::CONTROL,
-            "meta" => Modifiers::META,
+            "shift" | "S" => Modifiers::SHIFT,
+            "alt" | "A" => Modifiers::ALT,
+            "ctrl" | "control" | "C" => Modifiers::CONTROL,
+            "meta" | "M" => Modifiers::META,
             _ => {
                 return ArgError::failed_to_parse("Unknown modifier.", arg)
                     .err();

@@ -2,23 +2,30 @@ mod cmd;
 mod cmd_ctrl;
 mod cmd_key;
 mod command_ctrl;
+mod items;
 mod key_node;
 mod keys;
+mod mode;
+mod modes;
 
-use std::{borrow::Cow, fmt::Display};
+use std::{borrow::Cow, fmt::Display, mem};
 
 use termal::{
     formatc,
     raw::events::{Key, KeyCode, Modifiers},
 };
 
-pub use self::{cmd::*, cmd_ctrl::*, cmd_key::*, command_ctrl::*, keys::*};
+pub use self::{
+    cmd::*, cmd_ctrl::*, cmd_key::*, command_ctrl::*, keys::*, mode::*,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct Ctrl {
     cmd: CmdCtrl,
     command: CommandCtrl,
+    last: Option<(Cmd, Option<usize>)>,
     typed: String,
+    last_typed: String,
     message: String,
 }
 
@@ -31,11 +38,22 @@ impl Ctrl {
         &self.command
     }
 
-    pub fn key_press(&mut self, key: Key) -> Option<(Cmd, Option<usize>)> {
+    pub fn key_press(
+        &mut self,
+        mode: Mode,
+        key: Key,
+    ) -> Option<(Cmd, Option<usize>)> {
         if self.typed.starts_with(':') {
             if key.code == KeyCode::Enter {
                 return match self.command.execute(&self.typed) {
                     Ok(r) => {
+                        self.last_typed = self.typed
+                            [..self.typed.ceil_char_boundary(10)]
+                            .to_string();
+                        if self.last_typed.len() < self.typed.len() {
+                            self.last_typed += "...";
+                        }
+                        self.last = Some(r);
                         self.cancel();
                         Some(r)
                     }
@@ -69,7 +87,7 @@ impl Ctrl {
         let key: CmdKey = key.into();
         self.typed += &key.to_string();
 
-        let (cmd, cnt) = self.cmd.type_key(key)?;
+        let (cmd, cnt) = self.cmd.type_key(mode, key)?;
 
         let Some(cmd) = cmd else {
             let msg = formatc!(
@@ -80,6 +98,11 @@ impl Ctrl {
             self.message = msg;
             return None;
         };
+
+        if cmd != Cmd::StartCommand && cmd != Cmd::Cancel {
+            self.last = Some((cmd, cnt));
+            mem::swap(&mut self.last_typed, &mut self.typed);
+        }
 
         self.cancel();
         Some((cmd, cnt))
@@ -96,13 +119,19 @@ impl Ctrl {
         self.typed.push(':');
     }
 
-    pub fn display(&self, buf: &mut String) -> bool {
-        if self.typed.is_empty() {
-            *buf += &self.message;
-            true
+    pub fn get_right(&self) -> String {
+        if !self.typed.starts_with(':') && !self.typed.is_empty() {
+            self.typed.clone()
         } else {
-            *buf += &self.typed;
-            self.typed.starts_with(':')
+            formatc!("{'gr}{}{'_}", self.last_typed)
+        }
+    }
+
+    pub fn get_left(&self) -> &str {
+        if self.typed.starts_with(':') {
+            &self.typed
+        } else {
+            &self.message
         }
     }
 

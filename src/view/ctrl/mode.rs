@@ -2,12 +2,12 @@ use std::fmt::Display;
 
 use pareg::FromArg;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, FromArg)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, FromArg, Hash)]
 #[arg(exact)]
 pub enum Mode {
-    #[arg("normal")]
+    #[arg("n", "normal")]
     Normal,
-    #[arg("visual")]
+    #[arg("v", "visual")]
     Visual,
 }
 

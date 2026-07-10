@@ -9,12 +9,12 @@ use crate::{err::Result, file_view::FileView, view::view_state::ViewState};
 
 mod ctrl;
 mod help;
-mod mode;
 mod pager;
 mod pos;
 mod view_state;
+mod view_state_flags;
 
-pub use self::{help::*, mode::*, pos::*};
+pub use self::{help::*, pos::*};
 
 pub fn view(file: FileView, utf: bool) -> Result<()> {
     let size = term_size()?;

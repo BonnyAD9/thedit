@@ -1,28 +1,33 @@
+use std::collections::HashMap;
+
 use pareg::ArgInto;
 use termal::raw::events::KeyCode;
 
-use crate::view::{
-    Mode,
-    ctrl::{Cmd, CmdKey, Keys, key_node::KeyNode},
+use crate::view::ctrl::{
+    Cmd, CmdKey, Keys, Mode, key_node::KeyNode, modes::Modes,
 };
 
 #[derive(Debug, Clone, Default)]
 pub struct CmdCtrl {
     nodes: Vec<KeyNode>,
-    cur: usize,
+    roots: HashMap<Mode, usize>,
+    cur: Option<usize>,
     num: Option<usize>,
 }
 
 impl CmdCtrl {
     pub fn add_cmd(
         &mut self,
+        mode: Mode,
         keys: impl IntoIterator<Item = CmdKey>,
         cmd: Cmd,
     ) {
-        if self.nodes.is_empty() {
+        let mut cur = *self.roots.entry(mode).or_insert_with(|| {
+            let root = self.nodes.len();
             self.nodes.push(KeyNode::default());
-        }
-        let mut cur = 0;
+            root
+        });
+
         for k in keys {
             let new = self.nodes.len();
             cur = *self.nodes[cur].next.entry(k).or_insert(new);
@@ -33,25 +38,41 @@ impl CmdCtrl {
         self.nodes[cur].cmd = Some(cmd);
     }
 
+    pub fn add_mm_cmd(
+        &mut self,
+        modes: impl IntoIterator<Item = Mode>,
+        keys: impl IntoIterator<Item = CmdKey> + Clone,
+        cmd: Cmd,
+    ) {
+        for m in modes.into_iter() {
+            self.add_cmd(m, keys.clone(), cmd);
+        }
+    }
+
     pub fn type_key(
         &mut self,
+        mode: Mode,
         key: CmdKey,
     ) -> Option<(Option<Cmd>, Option<usize>)> {
-        if self.cur != 0 && key.code == KeyCode::Esc {
+        if self.cur.is_some() && key.code == KeyCode::Esc {
             self.cancel();
             return Some((Some(Cmd::None), None));
         }
+        self.cur = self.cur.or_else(|| self.roots.get(&mode).copied());
 
-        if self.cur == 0
-            && let KeyCode::Char(c) = key.code
-            && let Some(d) = c.to_digit(10)
-        {
-            // Numbers before command.
-            self.num = Some(self.num.unwrap_or_default() * 10 + d as usize);
-            return None;
-        }
+        let Some(cur) = self.cur else {
+            if let KeyCode::Char(c) = key.code
+                && let Some(d) = c.to_digit(10)
+            {
+                // Numbers before command.
+                self.num =
+                    Some(self.num.unwrap_or_default() * 10 + d as usize);
+                return None;
+            }
+            return Some((None, self.num));
+        };
 
-        let Some(n) = self.nodes[self.cur].get(key) else {
+        let Some(n) = self.nodes[cur].get(key) else {
             // Unknown command.
             let num = self.num;
             self.cancel();
@@ -60,7 +81,7 @@ impl CmdCtrl {
 
         let Some(cmd) = self.nodes[n].cmd else {
             // Command not full.
-            self.cur = n;
+            self.cur = Some(n);
             return None;
         };
 
@@ -97,56 +118,64 @@ impl CmdCtrl {
 
     pub fn cancel(&mut self) {
         self.num = None;
-        self.cur = 0;
+        self.cur = None;
     }
 
     pub fn default_controls() -> Self {
         let mut res = Self::default();
 
-        fn p(s: &str) -> Keys {
+        fn m(s: &str) -> Modes {
             s.arg_into().unwrap()
         }
 
-        res.add_cmd(p("j"), Cmd::MoveDown);
-        res.add_cmd(p("down"), Cmd::MoveDown);
-        res.add_cmd(p("k"), Cmd::MoveUp);
-        res.add_cmd(p("up"), Cmd::MoveUp);
-        res.add_cmd(p("h"), Cmd::MoveLeftWrap);
-        res.add_cmd(p("left"), Cmd::MoveLeftWrap);
-        res.add_cmd(p("l"), Cmd::MoveRightWrap);
-        res.add_cmd(p("right"), Cmd::MoveRightWrap);
-        res.add_cmd(p("ctrl-y"), Cmd::ScrollUp);
-        res.add_cmd(p("ctrl-e"), Cmd::ScrollDown);
-        res.add_cmd(p("ctrl-u"), Cmd::ScrollUpHalf);
-        res.add_cmd(p("ctrl-d"), Cmd::ScrollDownHalf);
-        res.add_cmd(p(":"), Cmd::StartCommand);
-        res.add_cmd(p("G"), Cmd::MoveToBottom);
-        res.add_cmd(p("ctrl-end"), Cmd::MoveToBottom);
-        res.add_cmd(p("g g"), Cmd::MoveToTop);
-        res.add_cmd(p("ctrl-home"), Cmd::MoveToTop);
-        res.add_cmd(p("ctrl-b"), Cmd::MovePageUp);
-        res.add_cmd(p("pg_up"), Cmd::MovePageUp);
-        res.add_cmd(p("ctrl-f"), Cmd::MovePageDown);
-        res.add_cmd(p("pg_down"), Cmd::MovePageDown);
-        res.add_cmd(p("_"), Cmd::MoveToStart);
-        res.add_cmd(p("home"), Cmd::MoveToStart);
-        res.add_cmd(p("$"), Cmd::MoveToEnd);
-        res.add_cmd(p("end"), Cmd::MoveToEnd);
-        res.add_cmd(p("ctrl-pg_down"), Cmd::ScrollPageDown);
-        res.add_cmd(p("ctrl-pg_up"), Cmd::ScrollPageUp);
-        res.add_cmd(p("ctrl-down"), Cmd::ScrollDown);
-        res.add_cmd(p("ctrl-up"), Cmd::ScrollUp);
-        res.add_cmd(p("S U"), Cmd::ShowUnsigned);
-        res.add_cmd(p("S I"), Cmd::ShowSigned);
-        res.add_cmd(p("S u"), Cmd::VisualUnsigned);
-        res.add_cmd(p("S i"), Cmd::VisualSigned);
-        res.add_cmd(p("S E"), Cmd::SwapEndianness);
-        res.add_cmd(p("esc"), Cmd::Cancel);
-        res.add_cmd(p("v"), Cmd::SetMode(Mode::Visual));
+        fn k(s: &str) -> Keys {
+            s.arg_into().unwrap()
+        }
+
+        let mut add_cmd =
+            |modes, keys, cmd| res.add_mm_cmd(m(modes), k(keys), cmd);
+
+        add_cmd("nv", "j", Cmd::MoveDown);
+        add_cmd("nv", "<down>", Cmd::MoveDown);
+        add_cmd("nv", "k", Cmd::MoveUp);
+        add_cmd("nv", "<up>", Cmd::MoveUp);
+        add_cmd("nv", "h", Cmd::MoveLeft);
+        add_cmd("nv", "<left>", Cmd::MoveLeft);
+        add_cmd("nv", "l", Cmd::MoveRight);
+        add_cmd("nv", "<right>", Cmd::MoveRight);
+        add_cmd("nv", "<C-y>", Cmd::ScrollUp);
+        add_cmd("nv", "<C-e>", Cmd::ScrollUp);
+        add_cmd("nv", "<C-u>", Cmd::ScrollUpHalf);
+        add_cmd("nv", "<C-d>", Cmd::ScrollDownHalf);
+        add_cmd("nv", ":", Cmd::StartCommand);
+        add_cmd("nv", "G", Cmd::MoveToBottom);
+        add_cmd("nv", "<C-end>", Cmd::MoveToBottom);
+        add_cmd("nv", "gg", Cmd::MoveToTop);
+        add_cmd("nv", "<C-home>", Cmd::MoveToTop);
+        add_cmd("nv", "<C-b>", Cmd::MovePageUp);
+        add_cmd("nv", "<pg_up>", Cmd::MovePageUp);
+        add_cmd("nv", "<C-f>", Cmd::MovePageDown);
+        add_cmd("nv", "<pg_down>", Cmd::MovePageDown);
+        add_cmd("nv", "_", Cmd::MoveToStart);
+        add_cmd("nv", "<home>", Cmd::MoveToStart);
+        add_cmd("nv", "$", Cmd::MoveToEnd);
+        add_cmd("nv", "<end>", Cmd::MoveToEnd);
+        add_cmd("nv", "<C-pg_down>", Cmd::ScrollPageDown);
+        add_cmd("nv", "<C-pg_up>", Cmd::ScrollPageUp);
+        add_cmd("nv", "<C-down>", Cmd::ScrollDown);
+        add_cmd("nv", "<C-up>", Cmd::ScrollUp);
+        add_cmd("nv", "SU", Cmd::ShowUnsigned);
+        add_cmd("nv", "SI", Cmd::ShowSigned);
+        add_cmd("nv", "Su", Cmd::VisualUnsigned);
+        add_cmd("nv", "Si", Cmd::VisualSigned);
+        add_cmd("nv", "SE", Cmd::SwapEndianness);
+        add_cmd("nv", "<esc>", Cmd::Cancel);
+        add_cmd("n", "v", Cmd::SetMode(Mode::Visual));
+        add_cmd("v", "v", Cmd::SetMode(Mode::Normal));
 
         // Temporary workaround
-        res.add_cmd(p("m"), Cmd::None);
-        res.add_cmd(p("M"), Cmd::None);
+        add_cmd("nv", "m", Cmd::None);
+        add_cmd("nv", "M", Cmd::None);
 
         res
     }
