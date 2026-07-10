@@ -3,6 +3,7 @@
 ## future
 ### Changes
 - Show the key codes properly.
+- Always show the last command.
 - Optimize reading selectoin for parsing.
 - Optimize drawing by allowing drawing the status bar independently.
 
