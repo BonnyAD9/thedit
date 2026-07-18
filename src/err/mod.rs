@@ -1,8 +1,8 @@
-use std::{borrow::Cow, fmt::Display};
+use std::{borrow::Cow, fmt::Display, sync::Arc};
 
 use thiserror::Error;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, Error)]
 pub enum ErrorKind {
@@ -14,6 +14,10 @@ pub enum ErrorKind {
     Pareg(#[from] pareg::ArgError),
     #[error(transparent)]
     Termal(#[from] termal::Error),
+    #[error(transparent)]
+    Mlua(#[from] mlua::Error),
+    #[error("Missing lua runtime.")]
+    MissingLuaRuntime,
 }
 
 #[derive(Debug)]
@@ -72,6 +76,13 @@ impl<T: Into<ErrorKind>> From<T> for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         self.kind.source()
+    }
+}
+
+impl From<Error> for mlua::Error {
+    fn from(value: Error) -> Self {
+        #[allow(clippy::arc_with_non_send_sync)]
+        mlua::Error::ExternalError(Arc::new(value))
     }
 }
 

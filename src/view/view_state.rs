@@ -1,5 +1,6 @@
-use std::{fmt::Write, ops::Range, time::Duration};
+use std::{fmt::Write, mem, ops::Range, time::Duration};
 
+use mlua::Lua;
 use termal::{
     codes, formatc,
     raw::{
@@ -15,11 +16,11 @@ use termal::{
 };
 
 use crate::{
-    err::Result,
+    err::{ErrorKind, Result},
     file_view::FileView,
     print,
     view::{
-        Pos,
+        Action, Pos,
         ctrl::{Cmd, Ctrl, Mode},
         help, pager,
         view_state_flags::ViewStateFlags,
@@ -41,6 +42,7 @@ pub struct ViewState {
     pos: Pos,
     select: Option<Pos>,
     mode: Mode,
+    lua: Option<Lua>,
 }
 
 impl ViewState {
@@ -50,6 +52,7 @@ impl ViewState {
         height: usize,
         chr_height: usize,
         utf: bool,
+        lua: Option<Lua>,
     ) -> Self {
         Self {
             file,
@@ -68,6 +71,7 @@ impl ViewState {
             select: None,
             controls: Ctrl::default_controls(),
             mode: Mode::Normal,
+            lua,
         }
     }
 
@@ -79,6 +83,11 @@ impl ViewState {
         self.actions += codes::ENABLE_MOUSE_XY_EXT;
         self.actions += codes::HIDE_CURSOR;
         self.flush()?;
+
+        if let Some(l) = &self.lua {
+            let acts: Vec<Action> = mem::take(&mut l.app_data_mut().unwrap());
+            self.do_actions(acts)?;
+        }
 
         const TIMEOUT: Duration = Duration::from_millis(50);
         while !self.flags.contains(ViewStateFlags::EXIT) {
@@ -194,7 +203,7 @@ impl ViewState {
             }
             Cmd::ShowHelp => {
                 self.actions.clear();
-                let keybinds = self.controls.keybinds().get_all();
+                let keybinds = self.controls.cmd.get_all();
                 let commands = self.controls.commands().all_commands();
                 pager::show(
                     help(keybinds, commands),
@@ -208,6 +217,34 @@ impl ViewState {
             }
             Cmd::EnableUtf(e) => {
                 self.flags.set(ViewStateFlags::UTF, e);
+            }
+            Cmd::Lua(fun) => {
+                let l =
+                    self.lua.as_ref().ok_or(ErrorKind::MissingLuaRuntime)?;
+                fun.call::<()>(cnt)?;
+                let acts: Vec<Action> =
+                    mem::take(&mut l.app_data_mut().unwrap());
+                self.do_actions(acts)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn do_actions(
+        &mut self,
+        acts: impl IntoIterator<Item = Action>,
+    ) -> Result<()> {
+        for a in acts {
+            self.do_action(a)?;
+        }
+        Ok(())
+    }
+
+    fn do_action(&mut self, act: Action) -> Result<()> {
+        match act {
+            Action::Cmd(cmd, cnt) => self.do_cmd(cmd, cnt)?,
+            Action::SetKey(modes, keys, cmd) => {
+                self.controls.cmd.add_mm_cmd(modes, keys, cmd);
             }
         }
         Ok(())

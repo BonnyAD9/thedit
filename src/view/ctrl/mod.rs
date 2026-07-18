@@ -17,11 +17,12 @@ use termal::{
 
 pub use self::{
     cmd::*, cmd_ctrl::*, cmd_key::*, command_ctrl::*, keys::*, mode::*,
+    modes::*,
 };
 
 #[derive(Debug, Default, Clone)]
 pub struct Ctrl {
-    cmd: CmdCtrl,
+    pub cmd: CmdCtrl,
     command: CommandCtrl,
     last: Option<(Cmd, Option<usize>)>,
     typed: String,
@@ -30,10 +31,6 @@ pub struct Ctrl {
 }
 
 impl Ctrl {
-    pub fn keybinds(&self) -> &CmdCtrl {
-        &self.cmd
-    }
-
     pub fn commands(&self) -> &CommandCtrl {
         &self.command
     }
@@ -53,7 +50,7 @@ impl Ctrl {
                         if self.last_typed.len() < self.typed.len() {
                             self.last_typed += "...";
                         }
-                        self.last = Some(r);
+                        self.last = Some(r.clone());
                         self.cancel();
                         Some(r)
                     }
@@ -100,7 +97,7 @@ impl Ctrl {
         };
 
         if cmd != Cmd::StartCommand && cmd != Cmd::Cancel {
-            self.last = Some((cmd, cnt));
+            self.last = Some((cmd.clone(), cnt));
             mem::swap(&mut self.last_typed, &mut self.typed);
         }
 

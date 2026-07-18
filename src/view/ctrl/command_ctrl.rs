@@ -14,13 +14,13 @@ impl CommandCtrl {
     pub fn all_commands(&self) -> Vec<(&str, (Cmd, Option<usize>))> {
         self.cmds
             .iter()
-            .map(|(n, (cm, cn))| (n.as_str(), (*cm, *cn)))
+            .map(|(n, (cm, cn))| (n.as_str(), (cm.clone(), *cn)))
             .collect()
     }
 
     pub fn execute(&self, cmd: &str) -> Result<(Cmd, Option<usize>)> {
         if let Some(res) = self.cmds.get(cmd) {
-            Ok(*res)
+            Ok(res.clone())
         } else {
             Error::unknown_command(cmd.to_string()).err()
         }

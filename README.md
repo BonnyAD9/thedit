@@ -11,7 +11,6 @@
 
 Thedit supports subset familiar vim controls (`hjkl` movement, visual mode, ...) and
 also has great mouse support (scrolling, selection, dragging the scrollbar, ...).
-The keybinds will be fully customizable in the future.
 
 When in visual mode, thedit will show decimal value of the selection in the bottom left
 corner. The default endianness is Big Endian, but you can easily switch it to **Little
@@ -62,6 +61,125 @@ For more features see `--help`.
 
 Thedit now only works as interactive hex viewer or hexdump. I would like to make
 this into full interactive terminal hex editor in the future.
+
+## Configuration
+
+Thedit uses configuration with lua. The root config file is located at
+`thedit/lua/init.lua` in your config directory (on linux that usually is
+`~/.config/thedit/lua/init.lua`).
+
+You can use the table `thedit` for configuration. There the following members:
+
+### `funcion thedit.cmd(cmd, cnt = nil)`
+Execute the given command with the given number parameter.
+
+`cnt` is nil or positive integer.
+
+`cmd` is string which may be any of the following commands:
+- `none`: Does nothing.
+- `exit`: Quits thedit.
+- `scroll-down`: Scroll down by one or the given amount.
+- `scroll-up`: Scroll up by one or the given amount.
+- `scroll-down-half`: Scroll down half the screen.
+- `scroll-up-half`: Scroll up half the screen.
+- `move-right`: Move the cursor right by one or cnt.
+- `move-left`: Move the cursor left by one or cnt.
+- `move-up`: Move the cursor up by one or cnt.
+- `move-down`: Move the cursor down by one or cnt.
+- `move-right-wrap`: Move the cursor right by one or cnt wrapping to the next
+  line if needed.
+- `move-left-wrap`: Move the cursor left by one or cnt wrapping to the previous
+  line if needed.
+- `scroll-to-view`: Scroll so that the cursor is in the view.
+- `start-command`: Start long command.
+- `move-to-top`: Move to the given line or to the start of the file.
+- `move-to-bottom`: Move to the given line or to the end of the file.
+- `view-signed`: View the next cnt or 4 bytes as signed value.
+- `view-unsigned`: View the next cnt or 4 bytes as unsigned value.
+- `swap-endianness`: Swap the endianness.
+- `set-big-endian`: Set endianness to big endian.
+- `set-little-endian`: Set endianness to little endian.
+- `cancel`: Cancel the current command.
+- `mode=<mode>`: Set the mode of terminal. `<mode>` may be one of:
+    - `n`, `normal`: Normal mode.
+    - `v`, `visual`: Visual mode.
+- `visual-signed`: Set the value preview in visual mode to signed mode.
+- `visual-unsigned`: Set the value preview in visual mode to unsigned mode.
+- `move-pg-up`: Move one page up.
+- `move-pg-down`: Move one page down.
+- `scroll-pg-up`: Scroll one page up.
+- `scroll-pg-down`: Scroll one page down.
+- `move-to-start`: Move to the start of the current line.
+- `move-to-end`: Move to the end of the current line.
+- `show-help`: Show help.
+- `enable-utf=<true|false>`: Enable/disable utf mode.
+
+Example usage:
+```lua
+-- set mode to visual
+thedit.cmd("mode=v")
+-- move to the last line
+thedit.cmd("move-to-bottom")
+-- move to line 5
+thedit.cmd("move-to-bottom", 5)
+```
+
+### `function thedit.map_key(modes, keys, action)`
+Sets keybind.
+
+`modes`: list of modes in which the keybind is active. Modes are the same as
+in the command `mode=<mode>`.
+If the one letter variant is used, the multiple values may be just the letters
+concatenated. If the multiletter variants are used, you need to enclose each
+mode in angle brackets. Spaces outside of angle brackets are ignored. (e.g.
+`nv` is the same as `<normal><visual>` which is same as `<normal> <visual>`)
+
+`keys`: list of keys that have to be pressed in order to trigger the command.
+List is encoded the same way as modes. Each key may be prefixed with modifiers
+(separated by dash `-`). If when using upper case ascii alphabetic key, shift
+modifier is implicit. The following modifiers are available:
+- `shift`, `S`: Shift key.
+- `alt`, `A`: Alt key.
+- `ctrl`, `control`, `C`: Control key.
+- `meta`, `M`: Meta key (windows key).
+
+The following keys are available:
+- any letter except space (` `) or angle brackets (`<` and `>`): key
+  representing that letter.
+- `up`: Up arrow.
+- `down`: Down arrow.
+- `right`: Right arrow.
+- `left`: Left arrow.
+- `space`: Spacebar.
+- `tab`: Tabulator key.
+- `enter`: Enter key.
+- `dash`: Key representing the character `-`.
+- `f0` - `f20`: The function keys.
+- `delete`: Delete key.
+- `insert`: Insert key.
+- `end`: End key.
+- `home`: Home key.
+- `pgup`, `pg_up`: Page up key.
+- `pgdown`, `pg_down`: Page down key.
+- `backspace`: Backspace key.
+- `esc`: Escape key.
+
+`action` is either command (same as `cmd` in `thedit.cmd`) or lua function with
+one or zero arguments. If `action` is lua function. The argument passed to the
+function is the number before the command.
+
+Example usage:
+```lua
+-- The following do the same: on `gg` move to the given line or bottom
+thedit.map_key("nv", "gg", "move-to-bottom")
+thedit.map_key("nv", "g g", function(cnt)
+    thedit.cmd("move-to-bottom", cnt)
+end)
+
+-- The following do the same: on `G` move to the given line or top
+thedit.map_key("nv", "G", "move-to-start")
+thedit.map_key("nv", "<S-g>", "move-to-start")
+```
 
 ## Links
 - **Author:** [BonnyAD9][author]

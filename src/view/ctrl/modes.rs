@@ -2,6 +2,7 @@ use pareg::{ArgInto, FromArg};
 
 use crate::view::ctrl::{Mode, items::Items};
 
+#[derive(Debug)]
 pub struct Modes(pub Vec<Mode>);
 
 impl<'a> FromArg<'a> for Modes {

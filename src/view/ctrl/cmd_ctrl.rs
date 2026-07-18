@@ -45,7 +45,7 @@ impl CmdCtrl {
         cmd: Cmd,
     ) {
         for m in modes.into_iter() {
-            self.add_cmd(m, keys.clone(), cmd);
+            self.add_cmd(m, keys.clone(), cmd.clone());
         }
     }
 
@@ -58,18 +58,22 @@ impl CmdCtrl {
             self.cancel();
             return Some((Some(Cmd::None), None));
         }
+
+        if self.cur.is_none()
+            && let KeyCode::Char(c) = key.code
+            && let Some(d) = c.to_digit(10)
+        {
+            // Numbers before command.
+            self.num = Some(self.num.unwrap_or_default() * 10 + d as usize);
+            return None;
+        }
+
         self.cur = self.cur.or_else(|| self.roots.get(&mode).copied());
 
         let Some(cur) = self.cur else {
-            if let KeyCode::Char(c) = key.code
-                && let Some(d) = c.to_digit(10)
-            {
-                // Numbers before command.
-                self.num =
-                    Some(self.num.unwrap_or_default() * 10 + d as usize);
-                return None;
-            }
-            return Some((None, self.num));
+            let num = self.num;
+            self.cancel();
+            return Some((None, num));
         };
 
         let Some(n) = self.nodes[cur].get(key) else {
@@ -79,7 +83,7 @@ impl CmdCtrl {
             return Some((None, num));
         };
 
-        let Some(cmd) = self.nodes[n].cmd else {
+        let Some(cmd) = self.nodes[n].cmd.clone() else {
             // Command not full.
             self.cur = Some(n);
             return None;
@@ -104,7 +108,7 @@ impl CmdCtrl {
             }
 
             let node = &self.nodes[node];
-            if let Some(cmd) = node.cmd {
+            if let Some(cmd) = node.cmd.clone() {
                 res.push((Keys(keys.clone()), cmd));
             }
 

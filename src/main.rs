@@ -19,6 +19,7 @@ mod cli;
 mod dump;
 mod err;
 mod file_view;
+mod lua;
 mod print;
 mod utils;
 mod view;

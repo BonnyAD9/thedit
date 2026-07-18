@@ -1,6 +1,10 @@
 # CHANGELOG
 
 ## future
+### New features
+- Add lua configuration.
+    - Allows setting custom keybinds.
+
 ### Changes
 - Show the key codes properly.
 - Always show the last command.

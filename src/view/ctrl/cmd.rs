@@ -4,7 +4,7 @@ use pareg::FromArg;
 
 use crate::view::ctrl::Mode;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, FromArg)]
+#[derive(Debug, Clone, PartialEq, FromArg)]
 #[arg(exact, split = '=')]
 pub enum Cmd {
     #[arg("none")]
@@ -73,6 +73,7 @@ pub enum Cmd {
     ShowHelp,
     #[arg("enable-utf")]
     EnableUtf(bool),
+    Lua(mlua::Function),
 }
 
 impl Display for Cmd {
@@ -111,6 +112,7 @@ impl Display for Cmd {
             Cmd::MoveToEnd => "move-to-end",
             Cmd::ShowHelp => "show-help",
             Cmd::EnableUtf(e) => return write!(f, "enable-utf={e}"),
+            Cmd::Lua(_) => "lua-function",
         };
         f.write_str(s)
     }
