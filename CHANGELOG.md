@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.1.2
+### Changes
+- Don't use vendored lua.
+
 ## v0.1.1
 ### New features
 - Add lua configuration.
