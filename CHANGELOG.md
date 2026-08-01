@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## future
+## v0.1.1
 ### New features
 - Add lua configuration.
     - Allows setting custom keybinds.
