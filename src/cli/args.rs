@@ -18,7 +18,7 @@ impl Args {
     pub fn parse(mut args: Pareg) -> Result<Self> {
         let mut res = Self::default();
 
-        while let Some(arg) = args.next() {
+        while let Some(arg) = args.next_str() {
             match arg {
                 "-h" | "-?" | "--help" => {
                     help();
